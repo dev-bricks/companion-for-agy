@@ -1,0 +1,39 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Debug-Output
+agy-debug.log
+
+# BACH Interne Steuerungsdateien
+AUFGABEN.txt
+AUFGABEN.md
+TODO.md
+DONE.md
+TEST.txt
+TESTS.txt
+TESTERGEBNISSE.txt
+BUGREPORT.md
+DIAGNOSE_REPORT.md
+
+# Sensible Daten
+.env
+.env.*
+credentials.json
+
+# Build-Artefakte
+dist/
+releases/
+*.exe
+
+# IDE & Editoren
+.claude/
+.vscode/
+.idea/
+*.swp
+
+# Betriebssystem
+desktop.ini
+Thumbs.db
+.DS_Store

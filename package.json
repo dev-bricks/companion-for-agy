@@ -1,0 +1,42 @@
+{
+  "name": "agy-companion",
+  "version": "1.0.0",
+  "description": "ConPTY-based wrapper for agy (Antigravity CLI) — captures Gemini responses that agy writes to the terminal buffer instead of stdout",
+  "type": "module",
+  "main": "src/agy-companion.mjs",
+  "bin": {
+    "agy-companion": "src/agy-companion.mjs"
+  },
+  "scripts": {
+    "start": "node src/agy-companion.mjs",
+    "test": "node src/agy-companion.mjs --help"
+  },
+  "keywords": [
+    "agy",
+    "antigravity",
+    "gemini",
+    "cli",
+    "wrapper",
+    "conpty",
+    "claude-code",
+    "multi-agent"
+  ],
+  "author": "Lukas Geiger",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dev-bricks/agy-companion.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dev-bricks/agy-companion/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "os": [
+    "win32"
+  ],
+  "dependencies": {
+    "node-pty": "^1.0.0"
+  }
+}
