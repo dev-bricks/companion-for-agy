@@ -1,7 +1,7 @@
 # companion-for-agy
 
-<p align="center">
-  <img src="assets/logo.jpg" alt="companion-for-agy Banner" width="800" />
+<p align="left">
+  <img src="https://raw.githubusercontent.com/dev-bricks/companion-for-agy/master/assets/logo.jpg" alt="companion-for-agy Banner" width="800" />
 </p>
 
 [![npm](https://img.shields.io/npm/v/companion-for-agy)](https://www.npmjs.com/package/companion-for-agy)

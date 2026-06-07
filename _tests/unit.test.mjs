@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   stripAnsi, isNoiseLine, extractByResponseColor,
   sanitizeForPty, extractResponse, escapeRegex, stripPromptEcho,
+  cleanColorExtracted,
   PERMISSION_PRESETS, TRUST_DIALOG_PATTERN, BANNER_MODEL_PATTERN,
   STARTUP_DONE_PATTERNS, INIT_DONE_PATTERNS,
   DEFAULT_MODEL, findAgyPath, AGY_PATH,
@@ -107,6 +108,12 @@ describe('isNoiseLine', () => {
     assert.equal(isNoiseLine('Reading file.txt'), true);
     assert.equal(isNoiseLine('Searching for results'), true);
     assert.equal(isNoiseLine('Executing command'), true);
+    assert.equal(isNoiseLine('Verifying the Constraints'), true);
+  });
+
+  it('filters TUI tip lines (└ prefix)', () => {
+    assert.equal(isNoiseLine('└ Tip: Press ? to see keyboard shortcuts.'), true);
+    assert.equal(isNoiseLine('└ 42 tokens used'), true);
   });
 
   it('filters email addresses (privacy)', () => {
@@ -504,6 +511,29 @@ describe('findAgyPath', () => {
 
   it('AGY_PATH matches findAgyPath result', () => {
     assert.equal(AGY_PATH, findAgyPath());
+  });
+});
+
+// ---------- cleanColorExtracted ----------
+
+describe('cleanColorExtracted', () => {
+  it('removes noise lines from color-extracted text', () => {
+    const text = '└ Tip: Press ? to see keyboard shortcuts.\nVerifying the Constraints\n4\n└ Tip: Press ? to see keyboard shortcuts.';
+    assert.equal(cleanColorExtracted(text), '4');
+  });
+
+  it('returns null for all-noise input', () => {
+    assert.equal(cleanColorExtracted('└ Tip: shortcuts\nVerifying stuff'), null);
+  });
+
+  it('preserves multi-line responses', () => {
+    const text = 'Line one.\nLine two.\nLine three.';
+    assert.equal(cleanColorExtracted(text), 'Line one.\nLine two.\nLine three.');
+  });
+
+  it('returns null for empty/null input', () => {
+    assert.equal(cleanColorExtracted(''), null);
+    assert.equal(cleanColorExtracted(null), null);
   });
 });
 

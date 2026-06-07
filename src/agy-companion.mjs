@@ -158,7 +158,8 @@ export function isNoiseLine(line, promptFilter = '') {
   if (/^Gemini \d/.test(t)) return true;
   if (/^\d+\s*tokens$/.test(t)) return true;
   if (/^▸\s/.test(t)) return true;
-  if (/^(Checking|Reading|Writing|Searching|Fetching|Analyzing|Executing)\b/i.test(t)) return true;
+  if (/^(Checking|Reading|Writing|Searching|Fetching|Analyzing|Executing|Verifying)\b/i.test(t)) return true;
+  if (/^└\s/.test(t)) return true;
   if (t.includes('@googlemail.com') || t.includes('@gmail.com')) return true;
   if (promptFilter && t.includes(promptFilter.slice(0, 20))) return true;
   return false;
@@ -231,20 +232,30 @@ export function stripPromptEcho(text, filter) {
   return clean.length > 0 ? clean : '';
 }
 
+export function cleanColorExtracted(text, promptFilter = '') {
+  if (!text) return null;
+  const lines = text.split('\n');
+  const cleaned = lines.filter(l => !isNoiseLine(l, promptFilter));
+  const result = cleaned.join('\n').trim();
+  return result.length > 0 ? result : null;
+}
+
 export function extractResponse(stripped, rawSection, promptFilter = '', effectiveFilter = '') {
   if (rawSection) {
     const colorResult = extractByResponseColor(rawSection);
     if (colorResult && colorResult.length > 0) {
+      let result = colorResult;
       const echoFilter = effectiveFilter || promptFilter;
       if (echoFilter) {
-        const cleaned = stripPromptEcho(colorResult, echoFilter);
-        if (cleaned !== null) return cleaned || null;
+        const cleaned = stripPromptEcho(result, echoFilter);
+        if (cleaned !== null) result = cleaned || '';
       }
       if (promptFilter && promptFilter !== echoFilter) {
-        const cleaned = stripPromptEcho(colorResult, promptFilter);
-        if (cleaned !== null) return cleaned || null;
+        const cleaned = stripPromptEcho(result, promptFilter);
+        if (cleaned !== null) result = cleaned || '';
       }
-      return colorResult;
+      const final = cleanColorExtracted(result, promptFilter);
+      return final;
     }
   }
 

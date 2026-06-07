@@ -1,7 +1,7 @@
 # companion-for-agy
 
-<p align="center">
-  <img src="assets/logo.png" alt="companion-for-agy Logo" width="200" height="200" />
+<p align="left">
+  <img src="https://raw.githubusercontent.com/dev-bricks/companion-for-agy/master/assets/logo.jpg" alt="companion-for-agy Banner" width="800" />
 </p>
 
 [![English](https://img.shields.io/badge/lang-English-blue)](README.md)
