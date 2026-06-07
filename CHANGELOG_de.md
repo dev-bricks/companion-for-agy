@@ -2,6 +2,12 @@
 
 ## [Unveröffentlicht]
 
+## [1.3.1] - 2026-06-07
+
+### Behoben (Bugsweep)
+- **detectResponseComplete:** Ein alleinstehender `>` mitten in der Antwort (z. B. Markdown-Blockquotes, agy-Statuszeilen) löst kein vorzeitiges Response-Complete mehr aus; der neue `foundPromptCandidate`-Ansatz scannt den vollständigen Puffer und setzt sich bei echtem Inhalt nach einem Kandidaten zurück (`ed1436d`).
+- **getMessage:** Platzhalterwerte mit `$&`, `$'`, `` $` `` oder `$n` wurden durch JavaScripts Sondermuster-Expansion in `String.prototype.replace` beschädigt; der Ersatz verwendet nun die Funktionsform `() => String(val)`, um jede Substitution zu verhindern (`5470404`).
+
 ## [1.3.0] - 2026-06-07
 
 ### Hinzugefügt

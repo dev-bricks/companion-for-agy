@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-06-07
+
+### Fixed (Bugsweep)
+- **detectResponseComplete:** Mid-response bare `>` (e.g. Markdown blockquotes, agy status lines) no longer triggers premature response-complete detection; the new `foundPromptCandidate` approach scans the full buffer and resets on real content after a candidate (`ed1436d`).
+- **getMessage:** Placeholder values containing `$&`, `$'`, `` $` `` or `$n` were corrupted by JavaScript's `String.prototype.replace` special-pattern expansion; replacement now uses the function form `() => String(val)` to prevent any substitution (`5470404`).
+
 ## [1.3.0] - 2026-06-07
 
 ### Added

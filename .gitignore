@@ -5,6 +5,7 @@ yarn-error.log*
 
 # Debug-Output
 agy-debug.log
+agy-debug*.log
 
 # BACH Interne Steuerungsdateien
 AUFGABEN.txt
