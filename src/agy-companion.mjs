@@ -533,6 +533,9 @@ if (isMainModule()) {
   const tempWorkspace = path.join(os.tmpdir(), `agy-companion-${process.pid}`);
   let tempSettingsCreated = false;
 
+  // Clean stale workspace from a previous crashed run with same PID
+  try { fs.rmSync(tempWorkspace, { recursive: true, force: true }); } catch (_) {}
+
   if (allAllow.length > 0 || allDeny.length > 0) {
     const geminiDir = path.join(tempWorkspace, '.gemini');
     fs.mkdirSync(geminiDir, { recursive: true });
