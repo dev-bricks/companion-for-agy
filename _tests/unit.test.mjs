@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   stripAnsi, isNoiseLine, extractByResponseColor,
   sanitizeForPty, extractResponse, escapeRegex, stripPromptEcho,
-  cleanColorExtracted,
+  cleanColorExtracted, detectResponseComplete,
   PERMISSION_PRESETS, TRUST_DIALOG_PATTERN, LOGIN_PROMPT_PATTERN, BANNER_MODEL_PATTERN,
   STARTUP_DONE_PATTERNS, INIT_DONE_PATTERNS,
   DEFAULT_MODEL, findAgyPath, AGY_PATH, parseDurationToMs,
@@ -806,5 +806,51 @@ describe('getMessage', () => {
 
   it('falls back to English when key or locale missing', () => {
     assert.equal(getMessage('errNoPrompt', 'invalid_locale'), getMessage('errNoPrompt', 'en'));
+  });
+});
+
+// ---------- detectResponseComplete ----------
+
+describe('detectResponseComplete', () => {
+  it('detects final > after echo as response-complete', () => {
+    const response = '> Was ist 2+2?\nDie Antwort ist 4.\n>';
+    assert.equal(detectResponseComplete(response, 'Was ist 2+2'), true);
+  });
+
+  it('rejects mid-response bare > when real content follows', () => {
+    // Bug-Fix: frueheres break ignorierte Inhalt nach dem ersten >
+    const response = '> Was ist 2+2?\nDie Antwort ist 4.\n>\nWeiterer Inhalt hier.';
+    assert.equal(detectResponseComplete(response, 'Was ist 2+2'), false);
+  });
+
+  it('accepts final > after mid-response > when content appeared between them', () => {
+    const response = '> Was ist 2+2?\nDie Antwort ist 4.\n>\nWeiterer Inhalt.\n>';
+    assert.equal(detectResponseComplete(response, 'Was ist 2+2'), true);
+  });
+
+  it('returns false when no > seen after echo', () => {
+    const response = '> Was ist 2+2?\nDie Antwort ist 4.';
+    assert.equal(detectResponseComplete(response, 'Was ist 2+2'), false);
+  });
+
+  it('returns false when question echo not found', () => {
+    const response = 'Die Antwort ist 4.\n>';
+    assert.equal(detectResponseComplete(response, 'Andere Frage'), false);
+  });
+
+  it('returns false when userPromptForFilter is empty', () => {
+    const response = 'Die Antwort ist 4.\n>';
+    assert.equal(detectResponseComplete(response, ''), false);
+  });
+
+  it('ignores noise lines after candidate >', () => {
+    const response = '> Was ist 2+2?\nDie Antwort ist 4.\n>\n1234 tokens\nGemini 3.5 Flash';
+    assert.equal(detectResponseComplete(response, 'Was ist 2+2'), true);
+  });
+
+  it('rejects multiple > without content between (empty blockquote spam)', () => {
+    // Three bare > at end: last one should still be detected as complete
+    const response = '> Was ist 2+2?\nAntwort.\n>\n>\n>';
+    assert.equal(detectResponseComplete(response, 'Was ist 2+2'), true);
   });
 });

@@ -225,6 +225,38 @@ export function isNoiseLine(line, promptFilter = '') {
   return false;
 }
 
+// ---------- Response-Complete Detection ----------
+
+/**
+ * Returns true when the stripped response buffer ends with the agy idle prompt (bare '>'),
+ * with no real content appearing after it.
+ *
+ * Bug fixed: the previous implementation used `break` at the first bare '>' after the
+ * question echo, so a blank blockquote line or any other mid-response '>' would
+ * incorrectly trigger responseComplete, starting the short 2.5s idle timer before the
+ * actual response finished.  The new approach tracks a candidate flag and resets it
+ * whenever non-noise content follows — only the *last* bare '>' with nothing meaningful
+ * after it is treated as the real prompt.
+ */
+export function detectResponseComplete(responseSoFar, userPromptForFilter) {
+  const respLines = responseSoFar.split('\n');
+  let seenQuestionEcho = false;
+  let foundPromptCandidate = false;
+  for (const line of respLines) {
+    const t = line.trim();
+    if (!seenQuestionEcho && userPromptForFilter && t.includes(userPromptForFilter.slice(0, 15))) {
+      seenQuestionEcho = true;
+    } else if (seenQuestionEcho) {
+      if (t === '>') {
+        foundPromptCandidate = true;
+      } else if (foundPromptCandidate && t && !isNoiseLine(t)) {
+        foundPromptCandidate = false;
+      }
+    }
+  }
+  return foundPromptCandidate;
+}
+
 // ---------- Response-Extraktion via ANSI-Farbe ----------
 
 export function extractByResponseColor(rawSection, responseColorParams = getResponseSgrParams()) {
@@ -814,18 +846,7 @@ if (isMainModule()) {
       clearTimeout(responseIdleTimer);
 
       const responseSoFar = stripAnsi(rawBuffer.slice(responseStartMark));
-      const respLines = responseSoFar.split('\n');
-      let seenQuestionEcho = false;
-      let responseComplete = false;
-      for (const line of respLines) {
-        const t = line.trim();
-        if (!seenQuestionEcho && userPromptForFilter && t.includes(userPromptForFilter.slice(0, 15))) {
-          seenQuestionEcho = true;
-        } else if (seenQuestionEcho && t === '>') {
-          responseComplete = true;
-          break;
-        }
-      }
+      const responseComplete = detectResponseComplete(responseSoFar, userPromptForFilter);
 
       if (responseComplete) {
         responseIdleTimer = setTimeout(() => {
