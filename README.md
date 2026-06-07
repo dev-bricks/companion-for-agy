@@ -4,6 +4,8 @@
   <img src="assets/logo.png" alt="companion-for-agy Logo" width="200" height="200" />
 </p>
 
+[![npm](https://img.shields.io/npm/v/companion-for-agy)](https://www.npmjs.com/package/companion-for-agy)
+[![CI](https://github.com/dev-bricks/companion-for-agy/actions/workflows/tests.yml/badge.svg)](https://github.com/dev-bricks/companion-for-agy/actions/workflows/tests.yml)
 [![Deutsch](https://img.shields.io/badge/lang-Deutsch-blue)](README_de.md)
 
 > **Unofficial** — not affiliated with or endorsed by Google.
