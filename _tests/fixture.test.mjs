@@ -250,3 +250,38 @@ describe('Fixture: No-tools prompt echo (regression)', () => {
     assert.equal(result, null);
   });
 });
+
+describe('Fixture: Real smoke test — no-tools with tip noise', () => {
+  const prefix = PERMISSION_PRESETS['no-tools'].promptPrefix;
+  const userPrompt = 'What is 2+2? Answer with just the number.';
+  const effectivePrompt = prefix + userPrompt;
+
+  it('strips prompt echo + tip lines + thinking noise, keeps "4"', () => {
+    const mangled = [
+      'IMPORTANT:Do not use any tools.Answer based on your knowledge only.',
+      'What is2+2?Answer withjustthenumber.',
+      '└ Tip: Press ? to see keyboard shortcuts.',
+      '  Verifying the Constraints',
+      '  4',
+      '└ Tip: Press ? to see keyboard shortcuts.',
+    ].join('\n');
+    const raw = `${RC}${mangled}${RESET}`;
+    const stripped = stripAnsi(raw);
+    const result = extractResponse(stripped, raw, userPrompt, effectivePrompt);
+    assert.equal(result, '4');
+  });
+
+  it('handles same scenario with extra whitespace', () => {
+    const mangled = [
+      'IMPORTANT:Donotuse any tools. Answer based on your knowledgeonly.What is2+2?Answer withjustthenumber.',
+      '└ Tip: Press ? to see keyboard shortcuts.',
+      'Verifying the Constraints',
+      '4',
+      '└ Tip: Press ? to see keyboard shortcuts.',
+    ].join('\n');
+    const raw = `${RC}${mangled}${RESET}`;
+    const stripped = stripAnsi(raw);
+    const result = extractResponse(stripped, raw, userPrompt, effectivePrompt);
+    assert.equal(result, '4');
+  });
+});

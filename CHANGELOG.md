@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.0-alpha.2] - 2026-06-07
+
+### Changed
+- Brand ASCII banner aligned to left in READMEs
+- Switched image source to raw GitHub URLs to fix logo rendering on npmjs.com
+
+### Fixed
+- Handled additional CLI tip noise (lines starting with `└`) and "Verifying..." lines in output parser
+
 ## [1.2.0-alpha.1] - 2026-06-07
 
 ### Changed
