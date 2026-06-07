@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.0] - 2026-06-07
+
+### Fixed (Bugsweep)
+- **Security:** Stale temp workspace from crashed run with same PID could leak permissions to new run — now cleaned on startup (`e8c5230`)
+- Temp directory leak in sandbox/skip-permissions modes when no custom rules are set (`d406299`)
+- Temp cleanup race on Windows: post-kill delay + rmSync retries for CWD lock (`41412d6`)
+- ConPTY text extraction: stale cursor position, bold SGR false-positive, dedup scope too narrow (`c2194bb`)
+- isNoiseLine false positives for blockquotes (`>`) and lines containing "tokens" keyword (`f6a8e7b`)
+
 ## [1.2.0-alpha.2] - 2026-06-07
 
 ### Changed

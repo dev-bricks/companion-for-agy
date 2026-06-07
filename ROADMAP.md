@@ -63,6 +63,15 @@ Emit response tokens as they arrive (line-by-line or chunk-by-chunk) instead of 
 ### Response Format Detection
 Detect whether agy's response is Markdown, JSON, or plain text and expose this in the JSON output (`"format": "markdown"`).
 
+### Robustness Improvements (from Bugsweep 2026-06-07)
+
+Items identified during the systematic bug sweep that are design improvements, not defects:
+
+- **Response idle timer minimum-progress threshold:** Currently, any single byte within the idle window resets the timer. A very slow stream (1 char/10s) keeps the timer alive indefinitely — only the global timeout catches it. Add a "minimum bytes since last check" threshold.
+- **Signal handling for external kill:** Register `process.on('SIGTERM')` and `process.on('SIGINT')` to ensure temp workspace cleanup when the process is killed externally (e.g., by a parent orchestrator or Ctrl+C in a pipeline).
+- **Dead code cleanup:** `tempSettingsCreated` variable is set but never read. Cleanup works unconditionally via `cleanupTemp()`.
+- **Prompt-echo filter edge case:** Very short prompts (≤2 chars) identical to the response text are incorrectly filtered as prompt echoes. Rare in practice (requires the user's question to be the same as the answer), but theoretically possible.
+
 ## Completed (v1.2.0-alpha.1)
 
 - Trust dialog auto-confirmation (5-phase state machine)

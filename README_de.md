@@ -41,6 +41,18 @@ npm install -g companion-for-agy
   - **macOS:** `xcode-select --install`
   - **Linux:** `sudo apt install build-essential python3` (Debian/Ubuntu)
 
+### Fehlerbehebung bei `node-pty` Build-Fehlern
+
+Falls `npm install` mit nativen Kompilierungsfehlern fehlschlägt:
+
+```bash
+# Alle Plattformen: native Module neu bauen
+npm rebuild node-pty
+
+# Windows: falls cl.exe nicht gefunden wird, Visual Studio Build Tools installieren
+# dann "Developer Command Prompt" oder "x64 Native Tools" verwenden
+```
+
 ## Verwendung
 
 ```bash
@@ -73,6 +85,13 @@ companion-for-agy [optionen] "prompt"
 | `--json` | Ausgabe als JSON-Objekt |
 | `--debug` | Rohen PTY-Output in `agy-debug.log` speichern |
 
+### Umgebungsvariablen
+
+| Variable | Beschreibung |
+|----------|-------------|
+| `AGY_COMPANION_AGY_PATH` | Pfad zur agy-Binary (wird automatisch erkannt wenn nicht gesetzt) |
+| `AGY_PATH` | Alternativer Pfad zur agy-Binary |
+
 ### Beispiele
 
 ```bash
@@ -84,6 +103,9 @@ companion-for-agy --no-tools "Überprüfe diesen Code: ..."
 
 # Web-Recherche
 companion-for-agy --researcher "Neueste Infos zu Node.js 24"
+
+# Nur-Lesen mit zusätzlicher Git-Berechtigung
+companion-for-agy --read-only --allow "command(git log)" "prompt"
 
 # JSON-Output für programmatische Nutzung
 companion-for-agy --json --model gemini-3.5-pro "prompt"
@@ -120,6 +142,10 @@ companion-for-agy --json --model gemini-3.5-pro "prompt"
 - **Multi-Agent-Orchestrierung:** Claude Code, Codex oder andere Agenten fragen Gemini via agy
 - **CI/CD-Pipelines:** Automatisierte Gemini-Abfragen in Build-Scripts
 - **Scripting:** Jedes Szenario wo agys Antwort als Text benötigt wird
+
+## Hintergrund
+
+Dieses Tool entstand, weil drei CLI-Agenten — **Claude Code**, **Codex** und **agy** — sich gegenseitig als Fallback-Berater aufrufen können müssen. Claude → Codex und agy → Claude/Codex funktionieren bereits, aber Claude → agy war durch den TUI-stdout-Bug blockiert.
 
 ## Lizenz
 
