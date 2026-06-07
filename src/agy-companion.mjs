@@ -137,6 +137,7 @@ export const PERMISSION_PRESETS = {
 // ---------- State-Machine-Patterns ----------
 
 export const TRUST_DIALOG_PATTERN = /Do you trust/;
+export const LOGIN_PROMPT_PATTERN = /Select login method/;
 export const BANNER_MODEL_PATTERN = /Gemini \d[\d.]* \w+(?:\s*\([^)]*\))?/;
 
 export const STARTUP_DONE_PATTERNS = [
@@ -204,6 +205,12 @@ export function extractByResponseColor(rawSection) {
   let inResponseColor = false;
   let pos = 0;
   const src = rawSection;
+  let hadCursorPos = false;
+  let cursorRow = null;
+  let cursorCol = null;
+  let gapHadNewline = false;
+  let currentGapNewline = false;
+  let preColorSpaces = 0;
 
   while (pos < src.length) {
     if (src[pos] === '\x1b') {
@@ -214,8 +221,26 @@ export function extractByResponseColor(rawSection) {
         const params = src.slice(pos + 2, end);
         if (params === '38;2;232;234;237' && cmd === 'm') {
           inResponseColor = true;
+          currentGapNewline = gapHadNewline;
+          hadCursorPos = false;
+          cursorRow = null;
+          cursorCol = null;
+          gapHadNewline = false;
         } else if (cmd === 'm') {
-          inResponseColor = false;
+          if (params === '' || params === '0' || params === '39' ||
+              (params.startsWith('38;') && params !== '38;2;232;234;237') ||
+              /^3[0-7]$/.test(params) || /^9[0-7]$/.test(params)) {
+            inResponseColor = false;
+          }
+        } else if (inResponseColor && (cmd === 'H' || cmd === 'f')) {
+          hadCursorPos = true;
+          const parts = params.split(';');
+          if (parts.length >= 2) {
+            const r = parseInt(parts[0], 10);
+            const c = parseInt(parts[1], 10);
+            if (!isNaN(r)) cursorRow = r;
+            if (!isNaN(c)) cursorCol = c;
+          }
         }
         pos = end + 1;
       } else if (src[pos + 1] === ']') {
@@ -231,9 +256,29 @@ export function extractByResponseColor(rawSection) {
       while (textEnd < src.length && src[textEnd] !== '\x1b') textEnd++;
       const rawText = src.slice(pos, textEnd);
       const text = rawText.replace(/[\x00-\x08\x0b\x0e-\x1f\x7f]/g, '');
-      if (text.length > 0) segments.push(text);
+      if (text.length > 0) {
+        segments.push({
+          text,
+          newLine: currentGapNewline && !hadCursorPos,
+          startCol: hadCursorPos ? cursorCol : null,
+          startRow: hadCursorPos ? cursorRow : null,
+          estimatedCol: !hadCursorPos ? preColorSpaces + 1 : null,
+        });
+        currentGapNewline = false;
+        if (hadCursorPos && cursorCol !== null) {
+          cursorCol += text.length;
+        }
+      }
       pos = textEnd;
     } else {
+      if (src[pos] === '\n') {
+        gapHadNewline = true;
+        preColorSpaces = 0;
+      } else if (src[pos] === ' ') {
+        preColorSpaces++;
+      } else {
+        preColorSpaces = 0;
+      }
       pos++;
     }
   }
@@ -241,10 +286,58 @@ export function extractByResponseColor(rawSection) {
   if (segments.length === 0) return null;
 
   const deduped = segments.filter((s, i) =>
-    !segments.some((o, j) => j !== i && o.length > s.length && o.startsWith(s))
+    !segments.some((o, j) => j !== i &&
+      s.startCol === null &&
+      o.text.length > s.text.length && o.text.startsWith(s.text))
   );
 
-  const combined = deduped.join('').trim();
+  let combined = '';
+  let lastEndCol = null;
+  let lastRow = null;
+  for (let i = 0; i < deduped.length; i++) {
+    const seg = deduped[i];
+    const rowChanged = seg.startRow !== null && lastRow !== null && seg.startRow !== lastRow;
+    if (i === 0) {
+      combined = seg.text;
+      if (seg.startCol !== null) {
+        lastEndCol = seg.startCol + seg.text.length;
+      } else if (seg.estimatedCol !== null) {
+        lastEndCol = seg.estimatedCol + seg.text.length;
+      }
+      if (seg.startRow !== null) lastRow = seg.startRow;
+    } else if (seg.startCol !== null && lastEndCol !== null && !rowChanged) {
+      const gap = seg.startCol - lastEndCol;
+      if (gap > 0) combined += ' '.repeat(gap);
+      else if (gap < 0) combined = combined.slice(0, Math.max(0, combined.length + gap));
+      combined += seg.text;
+      lastEndCol = seg.startCol + seg.text.length;
+      if (seg.startRow !== null) lastRow = seg.startRow;
+    } else if (seg.startCol !== null && !rowChanged) {
+      combined += seg.text;
+      lastEndCol = seg.startCol + seg.text.length;
+      if (seg.startRow !== null) lastRow = seg.startRow;
+    } else if (rowChanged || seg.newLine) {
+      if (seg.startCol !== null && lastEndCol !== null && seg.startCol === lastEndCol) {
+        combined += seg.text;
+      } else {
+        combined = combined.trimEnd() + ' ' + seg.text;
+      }
+      if (seg.startCol !== null) {
+        lastEndCol = seg.startCol + seg.text.length;
+      } else if (seg.estimatedCol !== null) {
+        lastEndCol = seg.estimatedCol + seg.text.length;
+      } else {
+        lastEndCol = null;
+      }
+      if (seg.startRow !== null) lastRow = seg.startRow;
+    } else {
+      combined += seg.text;
+      if (lastEndCol !== null) {
+        lastEndCol += seg.text.length;
+      }
+    }
+  }
+  combined = combined.replace(/ {2,}/g, ' ').trim();
   return combined.length > 0 ? combined : null;
 }
 
@@ -296,14 +389,16 @@ export function extractResponse(stripped, rawSection, promptFilter = '', effecti
   if (meaningful.length === 0) return null;
 
   let best = meaningful.join('\n').trim();
-  if (promptFilter) {
-    const promptWords = promptFilter.split(/\s+/).slice(0, 5).join('');
-    best = best.split('\n')
-      .filter(l => !l.replace(/\s/g, '').startsWith(promptWords.replace(/\s/g, '')))
-      .join('\n')
-      .trim();
+  const echoFilter = effectiveFilter || promptFilter;
+  if (echoFilter) {
+    const cleaned = stripPromptEcho(best, echoFilter);
+    if (cleaned !== null) best = cleaned || '';
   }
-  return best || null;
+  if (promptFilter && promptFilter !== echoFilter) {
+    const cleaned = stripPromptEcho(best, promptFilter);
+    if (cleaned !== null) best = cleaned || '';
+  }
+  return best.trim() || null;
 }
 
 // ---------- CLI Main ----------
@@ -533,7 +628,7 @@ if (isMainModule()) {
     cols: 220,
     rows: 50,
     cwd: tempWorkspace,
-    env: { ...process.env, TERM: 'xterm-256color' },
+    env: { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' },
   });
 
   let rawBuffer = '';
@@ -639,6 +734,12 @@ if (isMainModule()) {
           detectedModel = modelMatch[0];
           process.stderr.write(`[agy-companion] Detected model: ${detectedModel}\n`);
         }
+      }
+
+      if (LOGIN_PROMPT_PATTERN.test(recentStripped)) {
+        process.stderr.write(`[agy-companion] agy is not signed in. Please run 'agy' manually and complete sign-in first.\n`);
+        shutdown(3);
+        return;
       }
 
       if (!trustHandled && TRUST_DIALOG_PATTERN.test(recentStripped)) {

@@ -23,7 +23,7 @@ const agyExists = fs.existsSync(AGY_PATH);
 describe('Smoke: CLI basics', () => {
   it('--help exits 0 and shows usage', async () => {
     const { stderr } = await execFileAsync('node', [SCRIPT, '--help']);
-    assert.ok(stderr.includes('agy-companion'));
+    assert.ok(stderr.includes('companion-for-agy'));
     assert.ok(stderr.includes('--sandbox'));
     assert.ok(stderr.includes('--no-tools'));
   });

@@ -286,6 +286,49 @@ describe('Fixture: No-tools prompt echo (regression)', () => {
   });
 });
 
+// ---------- Real ConPTY fixture: cursor-positioned multi-sentence with bold ----------
+
+describe('Fixture: ConPTY cursor-positioned response with bold text', () => {
+  const CUP = (r, c) => `\x1b[${r};${c}H`;
+  const NOBOLD = '\x1b[22m';
+  const ERCH = '\x1b[208X';
+
+  const conptyResponse = [
+    `\n  ${RC}Hier sind dr${RESET}`,
+    `\n${RC}${CUP(14, 15)}ei Vorteile${RESET}`,
+    `${RC}${CUP(14, 27)}von OSS:${RESET}`,
+    `\n  ${RC}1. ${BOLD}Kost${NOBOLD}${RESET}`,
+    `\n${RC}${BOLD}${CUP(16, 10)}eneffizienz:${NOBOLD}${RESET}`,
+    `${RC}${CUP(16, 23)}Spart Geld.${RESET}`,
+    `\n  ${RC}2. ${BOLD}Sicherheit:${NOBOLD} Code wird geprüft.${RESET}`,
+    `\n  ${RC}3. ${BOLD}Flexibilität:${NOBOLD} Anpassbar.${RESET}`,
+  ].join('');
+
+  it('joins cursor-positioned segments with correct spacing', () => {
+    const result = extractByResponseColor(conptyResponse);
+    assert.ok(result.includes('Hier sind drei Vorteile von OSS:'));
+  });
+
+  it('captures bold text within response color', () => {
+    const result = extractByResponseColor(conptyResponse);
+    assert.ok(result.includes('Kosteneffizienz:'));
+    assert.ok(result.includes('Sicherheit:'));
+    assert.ok(result.includes('Flexibilität:'));
+  });
+
+  it('joins mid-word row wrap without spurious space', () => {
+    const result = extractByResponseColor(conptyResponse);
+    assert.ok(result.includes('Kosteneffizienz: Spart Geld.'));
+    assert.ok(!result.includes('Kost eneffizienz'));
+  });
+
+  it('preserves inline text after bold markers', () => {
+    const result = extractByResponseColor(conptyResponse);
+    assert.ok(result.includes('Sicherheit: Code wird geprüft.'));
+    assert.ok(result.includes('Flexibilität: Anpassbar.'));
+  });
+});
+
 describe('Fixture: Real smoke test — no-tools with tip noise', () => {
   const prefix = PERMISSION_PRESETS['no-tools'].promptPrefix;
   const userPrompt = 'What is 2+2? Answer with just the number.';

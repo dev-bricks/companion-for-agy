@@ -4,7 +4,7 @@ import {
   stripAnsi, isNoiseLine, extractByResponseColor,
   sanitizeForPty, extractResponse, escapeRegex, stripPromptEcho,
   cleanColorExtracted,
-  PERMISSION_PRESETS, TRUST_DIALOG_PATTERN, BANNER_MODEL_PATTERN,
+  PERMISSION_PRESETS, TRUST_DIALOG_PATTERN, LOGIN_PROMPT_PATTERN, BANNER_MODEL_PATTERN,
   STARTUP_DONE_PATTERNS, INIT_DONE_PATTERNS,
   DEFAULT_MODEL, findAgyPath, AGY_PATH, parseDurationToMs,
 } from '../src/agy-companion.mjs';
@@ -236,6 +236,77 @@ describe('extractByResponseColor', () => {
     const raw = `${RC}first${other}gap${RC}second${RESET}`;
     assert.equal(extractByResponseColor(raw), 'firstsecond');
   });
+
+  it('inserts space at line wrap boundaries', () => {
+    const raw = `${RC}end of line,${RESET}\n  ${RC}start of next${RESET}`;
+    assert.equal(extractByResponseColor(raw), 'end of line, start of next');
+  });
+
+  it('deduplicates partial-word prefix with full cursor-positioned rerender', () => {
+    const raw = `${RC}Pse${RESET}\n\n${RC}\x1b[12;12HPseudoterminal${RESET}`;
+    assert.equal(extractByResponseColor(raw), 'Pseudoterminal');
+  });
+
+  it('inserts space when non-positioned segment meets cursor-positioned text', () => {
+    const raw = `\n  ${RC}Ein Compiler${RESET}\n\n${RC}\x1b[14;16Hist ein Test${RESET}`;
+    assert.equal(extractByResponseColor(raw), 'Ein Compiler ist ein Test');
+  });
+
+  it('joins directly when non-positioned segment is split mid-word', () => {
+    const raw = `\n  ${RC}Ein spezielles Comp${RESET}\n\n${RC}\x1b[14;22Huterprogramm${RESET}`;
+    assert.equal(extractByResponseColor(raw), 'Ein spezielles Computerprogramm');
+  });
+
+  it('captures bold text within response color (SGR 1/22 not a color reset)', () => {
+    const BOLD = '\x1b[1m';
+    const NOBOLD = '\x1b[22m';
+    const raw = `\n  ${RC}1. ${BOLD}Kosteneffizienz:${NOBOLD} Spart Geld.${RESET}`;
+    assert.equal(extractByResponseColor(raw), '1. Kosteneffizienz: Spart Geld.');
+  });
+
+  it('joins mid-word row wrap without space (column continuity)', () => {
+    const BOLD = '\x1b[1m';
+    const NOBOLD = '\x1b[22m';
+    const raw = `\n  ${RC}1. ${BOLD}Kost${NOBOLD}${RESET}\n\n${RC}${BOLD}\x1b[16;10Heneffizienz:${NOBOLD}${RESET}`;
+    assert.equal(extractByResponseColor(raw), '1. Kosteneffizienz:');
+  });
+
+  it('fills column gaps with spaces (ConPTY word-boundary skipping)', () => {
+    const raw = `${RC}\x1b[1;1Hdas${RESET}${RC}\x1b[1;5Hein Test${RESET}`;
+    assert.equal(extractByResponseColor(raw), 'das ein Test');
+  });
+
+  it('handles overlap truncation (ConPTY partial re-render)', () => {
+    const raw = `${RC}\x1b[1;1Hhello wor${RESET}${RC}\x1b[1;7H    ${RESET}\n  ${RC}world${RESET}`;
+    assert.equal(extractByResponseColor(raw), 'hello world');
+  });
+
+  it('trims trailing whitespace at line wraps', () => {
+    const raw = `${RC}word      ${RESET}\n  ${RC}next${RESET}`;
+    assert.equal(extractByResponseColor(raw), 'word next');
+  });
+
+  it('collapses multiple spaces to single', () => {
+    const raw = `${RC}a    b${RESET}`;
+    assert.equal(extractByResponseColor(raw), 'a b');
+  });
+
+  it('advances cursorCol for continuation text in same RC block', () => {
+    const BOLD = '\x1b[1m';
+    const NOBOLD = '\x1b[22m';
+    const raw = `\n  ${RC}2. ${BOLD}Hohe Si${NOBOLD}${RESET}${RC}${BOLD}\x1b[15;13Hcherheit${NOBOLD}: Der frei ein${RESET}${RC}\x1b[15;35Hsehbare Code${RESET}`;
+    const result = extractByResponseColor(raw);
+    assert.ok(result.includes('Sicherheit'));
+    assert.ok(result.includes('einsehbare'));
+    assert.ok(!result.includes('ein sehbare'));
+  });
+
+  it('does not dedup CUP-positioned segments with common prefix', () => {
+    const raw = `${RC}\x1b[12;51H: ${RESET}${RC}\x1b[14;22H: Da keine${RESET}`;
+    const result = extractByResponseColor(raw);
+    assert.ok(result.includes(': '));
+    assert.ok(result.includes(': Da keine'));
+  });
 });
 
 // ---------- escapeRegex ----------
@@ -303,6 +374,14 @@ describe('extractResponse', () => {
     const stripped = 'Was ist 2+2\nDie Antwort ist 4.\n';
     const result = extractResponse(stripped, null, prompt);
     assert.ok(result.includes('Die Antwort ist 4'));
+  });
+
+  it('filters prompt echo in fallback mode using effectiveFilter', () => {
+    const prompt = 'What is 2+2?';
+    const effectiveFilter = 'IMPORTANT: Do not use any tools. What is 2+2?';
+    const stripped = 'IMPORTANT: Do not use any tools. What is 2+2?\n4\n';
+    const result = extractResponse(stripped, null, prompt, effectiveFilter);
+    assert.equal(result, '4');
   });
 
   it('keeps short color results', () => {
@@ -438,6 +517,24 @@ describe('TRUST_DIALOG_PATTERN', () => {
 
   it('does not trigger on random text', () => {
     assert.ok(!TRUST_DIALOG_PATTERN.test('hello world'));
+  });
+});
+
+describe('LOGIN_PROMPT_PATTERN', () => {
+  it('detects "Select login method" prompt', () => {
+    assert.ok(LOGIN_PROMPT_PATTERN.test('Select login method:'));
+  });
+
+  it('does not match startup banner "not signed in"', () => {
+    assert.ok(!LOGIN_PROMPT_PATTERN.test('You are currently not signed in.'));
+  });
+
+  it('does not match generic "Sign in to continue"', () => {
+    assert.ok(!LOGIN_PROMPT_PATTERN.test('Sign in to continue'));
+  });
+
+  it('does not trigger on normal output', () => {
+    assert.ok(!LOGIN_PROMPT_PATTERN.test('Gemini 3.5 Flash'));
   });
 });
 
