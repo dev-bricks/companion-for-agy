@@ -6,7 +6,7 @@ import {
   cleanColorExtracted,
   PERMISSION_PRESETS, TRUST_DIALOG_PATTERN, BANNER_MODEL_PATTERN,
   STARTUP_DONE_PATTERNS, INIT_DONE_PATTERNS,
-  DEFAULT_MODEL, findAgyPath, AGY_PATH,
+  DEFAULT_MODEL, findAgyPath, AGY_PATH, parseDurationToMs,
 } from '../src/agy-companion.mjs';
 
 const RC = '\x1b[38;2;232;234;237m';
@@ -82,8 +82,13 @@ describe('isNoiseLine', () => {
     assert.equal(isNoiseLine('╰──────╯'), true);
   });
 
-  it('filters prompt markers (>)', () => {
-    assert.equal(isNoiseLine('> enter prompt'), true);
+  it('filters bare prompt marker (>)', () => {
+    assert.equal(isNoiseLine('>'), true);
+  });
+
+  it('preserves blockquote lines (> text)', () => {
+    assert.equal(isNoiseLine('> This is a blockquote'), false);
+    assert.equal(isNoiseLine('> Zitat aus einer Quelle'), false);
   });
 
   it('filters spinner characters', () => {
@@ -133,6 +138,11 @@ describe('isNoiseLine', () => {
     assert.equal(isNoiseLine('Die Hauptstadt von Bayern ist München.'), false);
     assert.equal(isNoiseLine('Python is a programming language.'), false);
     assert.equal(isNoiseLine('The answer is 42.'), false);
+  });
+
+  it('keeps lines mentioning "tokens" in real content', () => {
+    assert.equal(isNoiseLine('GPT-4 was trained on billions of tokens.'), false);
+    assert.equal(isNoiseLine('The model uses 7B tokens for training.'), false);
   });
 
   it('filters triangle-arrow tool lines', () => {
@@ -275,7 +285,7 @@ describe('extractResponse', () => {
   });
 
   it('returns null for all-noise input', () => {
-    const stripped = '?\n> prompt\n42 tokens\n';
+    const stripped = '?\n>\n42 tokens\n';
     assert.equal(extractResponse(stripped, null), null);
   });
 
@@ -542,5 +552,38 @@ describe('cleanColorExtracted', () => {
 describe('DEFAULT_MODEL', () => {
   it('is gemini-3.5-flash', () => {
     assert.equal(DEFAULT_MODEL, 'gemini-3.5-flash');
+  });
+});
+
+// ---------- parseDurationToMs ----------
+
+describe('parseDurationToMs', () => {
+  it('parses basic seconds', () => {
+    assert.equal(parseDurationToMs('20s'), 20000);
+    assert.equal(parseDurationToMs('1.5s'), 1500);
+  });
+
+  it('parses basic minutes', () => {
+    assert.equal(parseDurationToMs('2m'), 120000);
+  });
+
+  it('parses composite durations', () => {
+    assert.equal(parseDurationToMs('5m0s'), 300000);
+    assert.equal(parseDurationToMs('1h30m'), 5400000);
+  });
+
+  it('parses milliseconds', () => {
+    assert.equal(parseDurationToMs('500ms'), 500);
+  });
+
+  it('handles plain numbers as seconds (lenient fallback)', () => {
+    assert.equal(parseDurationToMs('20'), 20000);
+    assert.equal(parseDurationToMs('0.5'), 500);
+  });
+
+  it('returns null for invalid input', () => {
+    assert.equal(parseDurationToMs('invalid'), null);
+    assert.equal(parseDurationToMs(''), null);
+    assert.equal(parseDurationToMs(null), null);
   });
 });

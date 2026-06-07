@@ -62,7 +62,7 @@ const FIXTURES = {
     '? for shortcuts\n',
     '╭──╮\n',
     '╰──╯\n',
-    '> prompt\n',
+    '>\n',
     '42 tokens\n',
   ].join(''),
 
@@ -93,6 +93,22 @@ const FIXTURES = {
     `${RC}Das ist ein Test${RESET}`,
     `${RC}Das ist ein Test.${RESET}`,
     '42 tokens\n',
+  ].join(''),
+};
+
+const FIXTURE_BLOCKQUOTE = {
+  responseWithBlockquote: [
+    `${RC}Hier ist ein Zitat:\n${RESET}`,
+    `${RC}\n${RESET}`,
+    `${RC}> Dies ist ein Blockquote.\n${RESET}`,
+    `${RC}> Es hat mehrere Zeilen.\n${RESET}`,
+    `${RC}\n${RESET}`,
+    `${RC}Ende der Antwort.${RESET}`,
+  ].join(''),
+
+  responseWithTokensWord: [
+    `${RC}GPT-4 wurde auf Milliarden Tokens trainiert.\n${RESET}`,
+    `${RC}Die Kontextlänge beträgt 128k tokens.${RESET}`,
   ].join(''),
 };
 
@@ -184,6 +200,25 @@ describe('Fixture: Multi-turn with prompt echo', () => {
     const result = extractByResponseColor(FIXTURES.multiTurnWithPromptEcho);
     assert.ok(result.includes('Erste Antwort.'));
     assert.ok(result.includes('Zweite Antwort.'));
+  });
+});
+
+describe('Fixture: Blockquote preservation', () => {
+  it('preserves blockquote lines in color-extracted response', () => {
+    const raw = FIXTURE_BLOCKQUOTE.responseWithBlockquote;
+    const stripped = stripAnsi(raw);
+    const result = extractResponse(stripped, raw);
+    assert.ok(result.includes('> Dies ist ein Blockquote.'));
+    assert.ok(result.includes('> Es hat mehrere Zeilen.'));
+    assert.ok(result.includes('Ende der Antwort.'));
+  });
+
+  it('preserves "tokens" word in real response content', () => {
+    const raw = FIXTURE_BLOCKQUOTE.responseWithTokensWord;
+    const stripped = stripAnsi(raw);
+    const result = extractResponse(stripped, raw);
+    assert.ok(result.includes('Milliarden Tokens'));
+    assert.ok(result.includes('128k tokens'));
   });
 });
 

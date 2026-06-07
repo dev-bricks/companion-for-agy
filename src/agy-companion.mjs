@@ -71,6 +71,38 @@ export function findAgyPath() {
 
 export const AGY_PATH = findAgyPath();
 
+// ---------- Go-style Duration Parser ----------
+
+export function parseDurationToMs(str) {
+  if (!str) return null;
+  const regex = /(\d+(?:\.\d+)?)(ns|us|µs|ms|s|m|h)/g;
+  let match;
+  let totalMs = 0;
+  let hasMatch = false;
+  while ((match = regex.exec(str)) !== null) {
+    hasMatch = true;
+    const value = parseFloat(match[1]);
+    const unit = match[2];
+    switch (unit) {
+      case 'ns': totalMs += value / 1e6; break;
+      case 'us':
+      case 'µs': totalMs += value / 1000; break;
+      case 'ms': totalMs += value; break;
+      case 's': totalMs += value * 1000; break;
+      case 'm': totalMs += value * 60000; break;
+      case 'h': totalMs += value * 3600000; break;
+    }
+  }
+  if (!hasMatch) {
+    const plain = parseFloat(str);
+    if (!isNaN(plain) && plain > 0) {
+      return Math.round(plain * 1000);
+    }
+    return null;
+  }
+  return Math.round(totalMs);
+}
+
 // ---------- Permission-Presets ----------
 
 export const PERMISSION_PRESETS = {
@@ -151,9 +183,9 @@ export function isNoiseLine(line, promptFilter = '') {
   const t = line.trim();
   if (!t) return true;
   if (/^[│┌└┐┘├┤┬┴┼─═╔╗╚╝╠╣╦╩╬▸►◉●▲▼◆□■╭╮╯╰]+$/.test(t)) return true;
-  if (t.startsWith('>')) return true;
+  if (t === '>') return true;
   if (/[⣾⣷⣯⣟⡿⢿⣻⣽⠿⠾⠽⠼⠻⠺⠹⠸⠷⠶⠵⠴⠳⠲⠱⠰]/.test(t)) return true;
-  if (/Generating|esc to cancel|for shortcuts|tokens/i.test(t)) return true;
+  if (/Generating|esc to cancel|for shortcuts/i.test(t)) return true;
   if (t === '?' || t === '? for shortcuts') return true;
   if (/^Gemini \d/.test(t)) return true;
   if (/^\d+\s*tokens$/.test(t)) return true;
@@ -362,7 +394,7 @@ if (isMainModule()) {
       jsonOutput = true;
     } else if (arg === '--sandbox') {
       permissionMode = 'sandbox';
-    } else if (arg === '--skip-permissions') {
+    } else if (arg === '--skip-permissions' || arg === '--dangerously-skip-permissions') {
       permissionMode = 'skip-permissions';
     } else if (arg === '--no-tools') {
       permissionMode = 'no-tools';
@@ -370,6 +402,16 @@ if (isMainModule()) {
       permissionMode = 'researcher';
     } else if (arg === '--read-only') {
       permissionMode = 'read-only';
+    } else if (arg === '--print-timeout' && rawArgs[i + 1]) {
+      const ms = parseDurationToMs(rawArgs[++i]);
+      if (ms !== null) timeoutMs = ms;
+    } else if (arg.startsWith('--print-timeout=')) {
+      const ms = parseDurationToMs(arg.slice(16));
+      if (ms !== null) timeoutMs = ms;
+    } else if (arg === '-p' || arg === '--print' || arg === '--prompt') {
+      // Ignored: agy-companion runs in interactive mode internally to capture PTY/ANSI
+    } else if (arg === '-i' || arg === '--prompt-interactive') {
+      // Ignored: agy-companion runs interactive by default
     } else if (arg === '--allow' && rawArgs[i + 1]) {
       customAllow.push(rawArgs[++i]);
     } else if (arg === '--deny' && rawArgs[i + 1]) {
