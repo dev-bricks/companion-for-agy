@@ -34,6 +34,26 @@ The current ANSI color extraction relies on `RGB(232,234,237)` as the response c
 - Platform-specific RGB override via environment variable (`AGY_COMPANION_RESPONSE_RGB`)
 - Heuristic: find the most frequent non-UI color in the stream
 
+### Internationalization (i18n)
+
+Currently, pattern matching (trust dialog, startup detection, init detection) relies on English agy output strings, with partial German support for init patterns. CLI help text and error messages are English-only.
+
+**Pattern Recognition (critical):**
+- [ ] Audit all regex patterns (`TRUST_DIALOG_PATTERN`, `STARTUP_DONE_PATTERNS`, `INIT_DONE_PATTERNS`) for locale dependency
+- [ ] Add German patterns for trust dialog and startup detection
+- [ ] Test with agy running in non-English locales — does agy localize its TUI strings?
+- [ ] Fallback strategy: if no known pattern matches within timeout, proceed anyway (graceful degradation)
+
+**CLI Output:**
+- [ ] Extract all user-facing strings (help text, error messages, status output) into a locale map
+- [ ] Auto-detect locale from `LANG`/`LC_ALL` environment variable or `--lang` flag
+- [ ] Supported languages: English (default), German
+
+**Documentation:**
+- [x] README.md (English) + README_de.md (German) with language switcher badges
+- [ ] CONTRIBUTING.md — German translation
+- [ ] CHANGELOG.md — bilingual or German translation
+
 ### Multi-Turn Mode
 Currently, each invocation spawns a fresh agy process (one question, one answer). A persistent mode that keeps the PTY alive across multiple prompts would reduce startup overhead for batch workloads.
 
