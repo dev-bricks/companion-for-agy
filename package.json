@@ -43,7 +43,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dev-bricks/companion-for-agy.git"
+    "url": "git+https://github.com/dev-bricks/companion-for-agy.git"
   },
   "bugs": {
     "url": "https://github.com/dev-bricks/companion-for-agy/issues"
