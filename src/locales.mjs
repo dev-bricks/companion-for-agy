@@ -421,7 +421,7 @@ export function getMessage(key, lang, placeholders = {}) {
   const translations = LOCALES[lang] || LOCALES.en;
   let msg = translations[key] || LOCALES.en[key] || '';
   for (const [name, val] of Object.entries(placeholders)) {
-    msg = msg.replace(new RegExp(`\\{${name}\\}`, 'g'), String(val));
+    msg = msg.replace(new RegExp(`\\{${name}\\}`, 'g'), () => String(val));
   }
   return msg;
 }

@@ -807,6 +807,18 @@ describe('getMessage', () => {
   it('falls back to English when key or locale missing', () => {
     assert.equal(getMessage('errNoPrompt', 'invalid_locale'), getMessage('errNoPrompt', 'en'));
   });
+
+  it('handles $ special chars in placeholder values without corruption', () => {
+    // Bug B: raw string replace() treats $& as "the matched string" — use function form
+    assert.equal(
+      getMessage('errAgyNotAt', 'en', { path: 'C:\\test$&suffix' }),
+      '[agy-companion] agy not found at: C:\\test$&suffix\n'
+    );
+    assert.equal(
+      getMessage('errAgyNotAt', 'en', { path: "C:\\prefix$'suffix" }),
+      "[agy-companion] agy not found at: C:\\prefix$'suffix\n"
+    );
+  });
 });
 
 // ---------- detectResponseComplete ----------
