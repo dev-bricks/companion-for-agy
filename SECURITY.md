@@ -22,10 +22,10 @@ keine Details in einem öffentlichen Issue.
 
 ### Geltungsbereich
 
-<!-- Projektspezifisch anpassen -->
-- Dateisystemzugriffe
-- Datenbankzugriffe
-- Externe API-Verbindungen
+- PTY-Prozesse (node-pty spawnt agy als Kindprozess)
+- Temporärer Workspace (Permission-Konfiguration in `os.tmpdir()`)
+- Pfad-Resolution (agy-Binary-Erkennung via PATH, Umgebungsvariablen)
+- Prompt-Injection über PTY-Eingabe (sanitizeForPty filtert Steuerzeichen)
 
 ### Reaktionszeit
 
@@ -56,10 +56,10 @@ through GitHub and do not publish details in a public issue.
 
 ### Scope
 
-<!-- Adjust scope for your project -->
-- File system access
-- Database access
-- External API connections
+- PTY processes (node-pty spawns agy as a child process)
+- Temporary workspace (permission configuration in `os.tmpdir()`)
+- Path resolution (agy binary detection via PATH, environment variables)
+- Prompt injection via PTY input (sanitizeForPty filters control characters)
 
 ### Response Time
 

@@ -33,6 +33,9 @@ releases/
 .idea/
 *.swp
 
+# Test-Ergebnisse (lokal, nicht committen)
+_results/
+
 # Betriebssystem
 desktop.ini
 Thumbs.db

@@ -26,16 +26,20 @@ gelten Pull Requests unter der Lizenz des Projekts.
 
 ### Code-Richtlinien
 
-- Python: PEP 8 Stil
+- **Runtime:** Node.js >= 18, ESM (`"type": "module"`)
+- **Tests:** `node:test` (kein externes Test-Framework)
 - Encoding: UTF-8 fuer alle Dateien
-- Sprache: Code und Kommentare auf Deutsch oder Englisch
+- Sprache: Code und Kommentare auf Englisch
 - Keine hardcoded Pfade oder API-Keys
 
 ### Erste Schritte
 
-Prüfen Sie zuerst `README.md` und vorhandene Build-/Startdateien (`START.bat`,
-`main.py`, `pyproject.toml`, `package.json`), damit Sie den projektspezifischen
-Startweg nutzen.
+```bash
+git clone https://github.com/dev-bricks/companion-for-agy.git
+cd companion-for-agy
+npm install
+npm test
+```
 
 ---
 
@@ -65,13 +69,17 @@ pull requests are understood to be submitted under the project's license.
 
 ### Code Guidelines
 
-- Python: PEP 8 style
+- **Runtime:** Node.js >= 18, ESM (`"type": "module"`)
+- **Tests:** `node:test` (no external test framework)
 - Encoding: UTF-8 for all files
-- Language: Code and comments in German or English
+- Language: Code and comments in English
 - No hardcoded paths or API keys
 
 ### Getting Started
 
-Start with `README.md` and any existing run/build files (`START.bat`,
-`main.py`, `pyproject.toml`, `package.json`) so you use the project-specific
-entrypoint.
+```bash
+git clone https://github.com/dev-bricks/companion-for-agy.git
+cd companion-for-agy
+npm install
+npm test
+```

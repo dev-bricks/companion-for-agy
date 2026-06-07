@@ -1,0 +1,6 @@
+_tests/
+_results/
+.github/
+agy-debug.log
+*.tgz
+assets/

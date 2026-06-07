@@ -1,41 +1,54 @@
 {
-  "name": "agy-companion",
-  "version": "1.0.0",
-  "description": "ConPTY-based wrapper for agy (Antigravity CLI) — captures Gemini responses that agy writes to the terminal buffer instead of stdout",
+  "name": "companion-for-agy",
+  "version": "1.2.0",
+  "description": "Unofficial PTY-based wrapper for agy (Antigravity CLI / Gemini CLI) — captures Gemini responses that agy writes to the terminal buffer instead of stdout",
   "type": "module",
   "main": "src/agy-companion.mjs",
   "bin": {
+    "companion-for-agy": "src/agy-companion.mjs",
     "agy-companion": "src/agy-companion.mjs"
   },
+  "files": [
+    "src/agy-companion.mjs",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "start": "node src/agy-companion.mjs",
-    "test": "node src/agy-companion.mjs --help"
+    "test": "node --test _tests/unit.test.mjs _tests/fixture.test.mjs",
+    "test:unit": "node --test _tests/unit.test.mjs",
+    "test:fixture": "node --test _tests/fixture.test.mjs",
+    "test:smoke": "node --test _tests/smoke.test.mjs",
+    "test:all": "node --test _tests/unit.test.mjs _tests/fixture.test.mjs _tests/smoke.test.mjs",
+    "deploy": "node -e \"require('fs').copyFileSync('src/agy-companion.mjs', require('path').join(require('os').homedir(), '.claude', 'scripts', 'agy-companion.mjs'));console.log('Deployed to ~/.claude/scripts/agy-companion.mjs')\"",
+    "sync": "git pull && npm run deploy"
   },
   "keywords": [
     "agy",
     "antigravity",
     "gemini",
+    "gemini-cli",
     "cli",
     "wrapper",
+    "pty",
     "conpty",
     "claude-code",
-    "multi-agent"
+    "multi-agent",
+    "llm"
   ],
   "author": "Lukas Geiger",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dev-bricks/agy-companion.git"
+    "url": "https://github.com/dev-bricks/companion-for-agy.git"
   },
   "bugs": {
-    "url": "https://github.com/dev-bricks/agy-companion/issues"
+    "url": "https://github.com/dev-bricks/companion-for-agy/issues"
   },
+  "homepage": "https://github.com/dev-bricks/companion-for-agy#readme",
   "engines": {
     "node": ">=18.0.0"
   },
-  "os": [
-    "win32"
-  ],
   "dependencies": {
     "node-pty": "^1.0.0"
   }
