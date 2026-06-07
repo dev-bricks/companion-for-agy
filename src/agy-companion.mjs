@@ -651,11 +651,7 @@ if (isMainModule()) {
 
   function cleanupTemp() {
     try {
-      if (tempSettingsCreated) {
-        fs.rmSync(tempWorkspace, { recursive: true, force: true });
-      } else {
-        fs.rmdirSync(tempWorkspace);
-      }
+      fs.rmSync(tempWorkspace, { recursive: true, force: true });
     } catch (_) {}
   }
 
