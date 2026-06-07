@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+﻿import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   stripAnsi, isNoiseLine, extractByResponseColor,
@@ -7,7 +7,9 @@ import {
   PERMISSION_PRESETS, TRUST_DIALOG_PATTERN, LOGIN_PROMPT_PATTERN, BANNER_MODEL_PATTERN,
   STARTUP_DONE_PATTERNS, INIT_DONE_PATTERNS,
   DEFAULT_MODEL, findAgyPath, AGY_PATH, parseDurationToMs,
+  DEFAULT_RESPONSE_RGB, parseResponseRgb, responseRgbToSgrParams,
 } from '../src/agy-companion.mjs';
+import { detectLocale, getMessage } from '../src/locales.mjs';
 
 const RC = '\x1b[38;2;232;234;237m';
 const RESET = '\x1b[0m';
@@ -231,6 +233,12 @@ describe('extractByResponseColor', () => {
     assert.equal(extractByResponseColor(raw), 'response');
   });
 
+  it('uses a custom response RGB when supplied', () => {
+    const custom = '\x1b[38;2;1;2;3m';
+    const raw = `${RC}default color${RESET}${custom}custom response${RESET}`;
+    assert.equal(extractByResponseColor(raw, '38;2;1;2;3'), 'custom response');
+  });
+
   it('handles response color toggling', () => {
     const other = '\x1b[38;2;100;100;100m';
     const raw = `${RC}first${other}gap${RC}second${RESET}`;
@@ -395,6 +403,12 @@ describe('extractResponse', () => {
     const stripped = 'noise\n';
     assert.equal(extractResponse(stripped, raw), '4');
   });
+
+  it('does not treat a one-character answer as prompt echo', () => {
+    const raw = `${RC}4${RESET}`;
+    const stripped = stripAnsi(raw);
+    assert.equal(extractResponse(stripped, raw, '4'), '4');
+  });
 });
 
 // ---------- stripPromptEcho ----------
@@ -506,6 +520,14 @@ describe('PERMISSION_PRESETS', () => {
     assert.ok(r.allow.some(a => a.includes('search')));
     assert.ok(r.deny.some(d => d.includes('write_file')));
   });
+
+  it('researcher denies shell commands to keep the preset read-only', () => {
+    assert.ok(PERMISSION_PRESETS.researcher.deny.includes('command(*)'));
+  });
+
+  it('read-only denies shell commands to prevent command-based writes', () => {
+    assert.ok(PERMISSION_PRESETS['read-only'].deny.includes('command(*)'));
+  });
 });
 
 // ---------- Pattern Detection ----------
@@ -513,6 +535,11 @@ describe('PERMISSION_PRESETS', () => {
 describe('TRUST_DIALOG_PATTERN', () => {
   it('detects trust dialog', () => {
     assert.ok(TRUST_DIALOG_PATTERN.test('Do you trust the contents of this project?'));
+  });
+
+  it('detects German trust dialog variants', () => {
+    assert.ok(TRUST_DIALOG_PATTERN.test('Vertrauen Sie dem Inhalt dieses Projekts?'));
+    assert.ok(TRUST_DIALOG_PATTERN.test('Vertraust du den Inhalten dieses Ordners?'));
   });
 
   it('does not trigger on random text', () => {
@@ -571,6 +598,11 @@ describe('BANNER_MODEL_PATTERN', () => {
 describe('STARTUP_DONE_PATTERNS', () => {
   it('detects shortcut hint', () => {
     assert.ok(STARTUP_DONE_PATTERNS.some(p => p.test('? for shortcuts')));
+  });
+
+  it('detects German shortcut hints', () => {
+    assert.ok(STARTUP_DONE_PATTERNS.some(p => p.test('? für Tastenkürzel')));
+    assert.ok(STARTUP_DONE_PATTERNS.some(p => p.test('? für Kurzbefehle')));
   });
 
   it('does not trigger on Antigravity CLI banner alone', () => {
@@ -682,5 +714,97 @@ describe('parseDurationToMs', () => {
     assert.equal(parseDurationToMs('invalid'), null);
     assert.equal(parseDurationToMs(''), null);
     assert.equal(parseDurationToMs(null), null);
+  });
+});
+
+// ---------- Response RGB parsing ----------
+
+describe('DEFAULT_RESPONSE_RGB', () => {
+  it('is the verified Windows response color', () => {
+    assert.deepEqual(DEFAULT_RESPONSE_RGB, [232, 234, 237]);
+  });
+});
+
+describe('parseResponseRgb', () => {
+  it('parses comma-separated RGB triples', () => {
+    assert.deepEqual(parseResponseRgb('1,2,3'), [1, 2, 3]);
+  });
+
+  it('parses semicolon-separated RGB triples', () => {
+    assert.deepEqual(parseResponseRgb('232;234;237'), [232, 234, 237]);
+  });
+
+  it('trims whitespace', () => {
+    assert.deepEqual(parseResponseRgb(' 10, 20, 30 '), [10, 20, 30]);
+  });
+
+  it('rejects invalid values', () => {
+    assert.equal(parseResponseRgb('1,2'), null);
+    assert.equal(parseResponseRgb('1,2,999'), null);
+    assert.equal(parseResponseRgb('abc'), null);
+    assert.equal(parseResponseRgb(''), null);
+    assert.equal(parseResponseRgb(null), null);
+  });
+});
+
+describe('responseRgbToSgrParams', () => {
+  it('converts RGB arrays to SGR params', () => {
+    assert.equal(responseRgbToSgrParams([1, 2, 3]), '38;2;1;2;3');
+  });
+});
+
+// ---------- i18n Locales ----------
+
+describe('detectLocale', () => {
+  it('detects locale from options priority', () => {
+    assert.equal(detectLocale('de'), 'de');
+    assert.equal(detectLocale('ES'), 'es');
+    assert.equal(detectLocale('zh'), 'zh-Hans');
+    assert.equal(detectLocale('zh-hans'), 'zh-Hans');
+    assert.equal(detectLocale('ja'), 'ja');
+    assert.equal(detectLocale('ru'), 'ru');
+    assert.equal(detectLocale('unknown'), 'en');
+  });
+
+  it('detects locale from environment variables', () => {
+    assert.equal(detectLocale(null, { LANG: 'de_DE.UTF-8' }), 'de');
+    assert.equal(detectLocale(null, { LANG: 'ja_JP' }), 'ja');
+    assert.equal(detectLocale(null, { LANG: 'zh_CN.gbk' }), 'zh-Hans');
+  });
+
+  it('uses standard environment variable priority', () => {
+    assert.equal(detectLocale(null, {
+      LANG: 'de_DE.UTF-8',
+      LC_MESSAGES: 'es_ES.UTF-8',
+      LC_ALL: 'ja_JP.UTF-8',
+    }), 'ja');
+    assert.equal(detectLocale(null, {
+      LANG: 'de_DE.UTF-8',
+      LC_MESSAGES: 'ru_RU.UTF-8',
+    }), 'ru');
+  });
+
+  it('defaults to en for empty/unsupported values', () => {
+    assert.equal(detectLocale(null, {}), 'en');
+    assert.equal(detectLocale('fr', {}), 'en');
+  });
+});
+
+describe('getMessage', () => {
+  it('returns translation for valid keys', () => {
+    assert.ok(getMessage('usage', 'de').includes('Optionen:'));
+    assert.ok(getMessage('usage', 'es').includes('Opciones:'));
+    assert.ok(getMessage('usage', 'zh-Hans').includes('选项:'));
+    assert.ok(getMessage('usage', 'ja').includes('オプション:'));
+    assert.ok(getMessage('usage', 'ru').includes('Опции:'));
+  });
+
+  it('interpolates placeholders correctly', () => {
+    assert.equal(getMessage('errUnknownOption', 'en', { arg: '--foo' }), 'Error: Unknown option: --foo\n\n');
+    assert.equal(getMessage('errUnknownOption', 'de', { arg: '--foo' }), 'Fehler: Unbekannte Option: --foo\n\n');
+  });
+
+  it('falls back to English when key or locale missing', () => {
+    assert.equal(getMessage('errNoPrompt', 'invalid_locale'), getMessage('errNoPrompt', 'en'));
   });
 });

@@ -55,6 +55,7 @@ describe('Smoke: Live agy query', {
       );
 
       assert.ok(stdout.length > 0, 'stdout should not be empty');
+      assert.doesNotMatch(stderr, /AttachConsole failed|conpty_console_list_agent/);
     } catch (err) {
       fs.writeFileSync(
         path.join(RESULTS_DIR, `${logPrefix}-error.log`),
@@ -84,6 +85,7 @@ describe('Smoke: Live agy query', {
       assert.ok(parsed.model, 'JSON should have model field');
       assert.ok(parsed.permissionMode, 'JSON should have permissionMode field');
       assert.equal(parsed.permissionMode, 'no-tools');
+      assert.doesNotMatch(stderr, /AttachConsole failed|conpty_console_list_agent/);
     } catch (err) {
       fs.writeFileSync(
         path.join(RESULTS_DIR, `${logPrefix}-error.log`),

@@ -24,6 +24,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 import process from 'node:process';
+import { detectLocale, getMessage } from './locales.mjs';
 
 // ---------- Defaults ----------
 
@@ -31,8 +32,32 @@ export const DEFAULT_MODEL = 'gemini-3.5-flash';
 export const DEFAULT_TIMEOUT_MS = 120000;
 export const RESPONSE_IDLE_MS = 10000;
 export const RESPONSE_DONE_IDLE_MS = 2500;
+export const NO_RESPONSE_EXIT_CODE = 4;
+export const SHUTDOWN_FORCE_KILL_MS = 2000;
+export const SHUTDOWN_CLEANUP_DELAY_MS = 1000;
+export const DEFAULT_RESPONSE_RGB = [232, 234, 237];
 
 const require = createRequire(import.meta.url);
+
+// ---------- Response Color ----------
+
+export function parseResponseRgb(value) {
+  if (!value || typeof value !== 'string') return null;
+  const parts = value.trim().split(/[;,]/).map(p => p.trim());
+  if (parts.length !== 3) return null;
+  const rgb = parts.map(p => Number.parseInt(p, 10));
+  if (rgb.some(v => Number.isNaN(v) || v < 0 || v > 255)) return null;
+  return rgb;
+}
+
+export function responseRgbToSgrParams(rgb) {
+  return `38;2;${rgb[0]};${rgb[1]};${rgb[2]}`;
+}
+
+export function getResponseSgrParams() {
+  const envRgb = parseResponseRgb(process.env.AGY_COMPANION_RESPONSE_RGB);
+  return responseRgbToSgrParams(envRgb || DEFAULT_RESPONSE_RGB);
+}
 
 // ---------- Auto-Detection ----------
 
@@ -125,23 +150,24 @@ export const PERMISSION_PRESETS = {
   researcher: {
     agyFlags: ['--sandbox'],
     allow: ['google_search(*)', 'web_search(*)', 'web_fetch(*)', 'read_file(*)'],
-    deny: ['write_file(*)', 'edit_file(*)', 'command(rm *)', 'command(del *)'],
+    deny: ['command(*)', 'write_file(*)', 'edit_file(*)'],
   },
   'read-only': {
     agyFlags: ['--sandbox'],
     allow: ['read_file(*)'],
-    deny: ['write_file(*)', 'edit_file(*)', 'command(rm *)', 'command(del *)'],
+    deny: ['command(*)', 'write_file(*)', 'edit_file(*)'],
   },
 };
 
 // ---------- State-Machine-Patterns ----------
 
-export const TRUST_DIALOG_PATTERN = /Do you trust/;
+export const TRUST_DIALOG_PATTERN = /(Do you trust|Vertrauen Sie|Vertraust du)/i;
 export const LOGIN_PROMPT_PATTERN = /Select login method/;
 export const BANNER_MODEL_PATTERN = /Gemini \d[\d.]* \w+(?:\s*\([^)]*\))?/;
 
 export const STARTUP_DONE_PATTERNS = [
-  /\? for shortcuts/,
+  /\? for shortcuts/i,
+  /\? für (Tastenkürzel|Kurzbefehle)/i,
 ];
 
 export const INIT_DONE_PATTERNS = [
@@ -194,13 +220,14 @@ export function isNoiseLine(line, promptFilter = '') {
   if (/^(Checking|Reading|Writing|Searching|Fetching|Analyzing|Executing|Verifying)\b/i.test(t)) return true;
   if (/^└\s/.test(t)) return true;
   if (t.includes('@googlemail.com') || t.includes('@gmail.com')) return true;
-  if (promptFilter && t.includes(promptFilter.slice(0, 20))) return true;
+  const promptNeedle = promptFilter.slice(0, 20).trim();
+  if (promptNeedle.length >= 5 && t.includes(promptNeedle)) return true;
   return false;
 }
 
 // ---------- Response-Extraktion via ANSI-Farbe ----------
 
-export function extractByResponseColor(rawSection) {
+export function extractByResponseColor(rawSection, responseColorParams = getResponseSgrParams()) {
   const segments = [];
   let inResponseColor = false;
   let pos = 0;
@@ -219,7 +246,7 @@ export function extractByResponseColor(rawSection) {
         while (end < src.length && !/[A-Za-z]/.test(src[end])) end++;
         const cmd = src[end];
         const params = src.slice(pos + 2, end);
-        if (params === '38;2;232;234;237' && cmd === 'm') {
+        if (params === responseColorParams && cmd === 'm') {
           inResponseColor = true;
           currentGapNewline = gapHadNewline;
           hadCursorPos = false;
@@ -228,7 +255,7 @@ export function extractByResponseColor(rawSection) {
           gapHadNewline = false;
         } else if (cmd === 'm') {
           if (params === '' || params === '0' || params === '39' ||
-              (params.startsWith('38;') && params !== '38;2;232;234;237') ||
+              (params.startsWith('38;') && params !== responseColorParams) ||
               /^3[0-7]$/.test(params) || /^9[0-7]$/.test(params)) {
             inResponseColor = false;
           }
@@ -416,56 +443,14 @@ function isMainModule() {
 
 if (isMainModule()) {
 
-  function printUsage() {
-    process.stderr.write([
-      'companion-for-agy — Unofficial PTY wrapper for agy (Antigravity CLI / Gemini CLI)',
-      '',
-      'Usage: companion-for-agy [options] "prompt"',
-      '',
-      'Permission modes (mutually exclusive):',
-      '  --sandbox              Sandbox mode (default) — tools in container',
-      '  --skip-permissions     All tools without confirmation (YOLO)',
-      '  --no-tools             Pure chat — no tool execution',
-      '  --researcher           Web search allowed, no file changes',
-      '  --read-only            Read-only, no modifications',
-      '',
-      'Custom rules (combinable with modes):',
-      '  --allow <pattern>      Allowlist rule (repeatable)',
-      '  --deny <pattern>       Denylist rule (repeatable)',
-      '  Formats: read_file(/path), command(git), write_file(*)',
-      '',
-      'Options:',
-      '  --model <model>        Gemini model (default: gemini-3.5-flash)',
-      '  --timeout <ms>         Timeout in ms (default: 120000)',
-      '  --json                 Output as JSON object',
-      '  --debug                Save raw PTY output to agy-debug.log',
-      '  --help                 Show this help',
-      '',
-      'Models:',
-      '  gemini-1.5-flash   gemini-1.5-pro',
-      '  gemini-2.0-flash   gemini-2.0-pro',
-      '  gemini-3.5-flash   gemini-3.5-pro',
-      '',
-      'Environment variables:',
-      '  AGY_COMPANION_AGY_PATH   Path to agy binary',
-      '  AGY_PATH                 Alternative path to agy binary',
-      '',
-      'Examples:',
-      '  companion-for-agy "What is the capital of Bavaria?"',
-      '  companion-for-agy --no-tools "Review this code: ..."',
-      '  companion-for-agy --researcher "Latest info on Node.js 24"',
-      '  companion-for-agy --read-only --allow "command(git log)" "prompt"',
-      '  companion-for-agy --json --model gemini-3.5-pro "prompt"',
-    ].join('\n') + '\n');
+  function printUsage(lang) {
+    process.stderr.write(getMessage('usage', lang));
   }
 
   const rawArgs = process.argv.slice(2);
-  if (rawArgs.length === 0 || rawArgs[0] === '--help' || rawArgs[0] === '-h') {
-    printUsage();
-    process.exit(0);
-  }
 
   let model = DEFAULT_MODEL;
+  let includeModel = !/^(1|true|yes)$/i.test(process.env.AGY_COMPANION_NO_MODEL || '');
   let timeoutMs = DEFAULT_TIMEOUT_MS;
   let debug = false;
   let jsonOutput = false;
@@ -475,11 +460,24 @@ if (isMainModule()) {
   let userPromptForFilter = '';
   let effectivePromptForFilter = '';
   const promptParts = [];
+  let langOption = null;
+  let showHelp = false;
+
+  let parseOptions = true;
 
   for (let i = 0; i < rawArgs.length; i++) {
     const arg = rawArgs[i];
-    if ((arg === '--model' || arg === '-m') && rawArgs[i + 1]) {
+
+    if (!parseOptions) {
+      promptParts.push(arg);
+    } else if (arg === '--') {
+      parseOptions = false;
+    } else if (arg === '--help' || arg === '-h') {
+      showHelp = true;
+    } else if ((arg === '--model' || arg === '-m') && rawArgs[i + 1]) {
       model = rawArgs[++i];
+    } else if (arg === '--no-model') {
+      includeModel = false;
     } else if (arg === '--timeout' && rawArgs[i + 1]) {
       const t = parseInt(rawArgs[++i], 10);
       if (!isNaN(t) && t > 0) timeoutMs = t;
@@ -511,15 +509,31 @@ if (isMainModule()) {
       customAllow.push(rawArgs[++i]);
     } else if (arg === '--deny' && rawArgs[i + 1]) {
       customDeny.push(rawArgs[++i]);
+    } else if (arg === '--lang' && rawArgs[i + 1]) {
+      langOption = rawArgs[++i];
+    } else if (arg.startsWith('--lang=')) {
+      langOption = arg.slice(7);
     } else if (!arg.startsWith('-')) {
       promptParts.push(arg);
+    } else {
+      const tempLang = detectLocale(langOption);
+      process.stderr.write(getMessage('errUnknownOption', tempLang, { arg }));
+      printUsage(tempLang);
+      process.exit(1);
     }
+  }
+
+  const lang = detectLocale(langOption);
+
+  if (showHelp || rawArgs.length === 0) {
+    printUsage(lang);
+    process.exit(0);
   }
 
   const userPrompt = promptParts.join(' ').trim();
   if (!userPrompt) {
-    process.stderr.write('Error: No prompt provided.\n\n');
-    printUsage();
+    process.stderr.write(getMessage('errNoPrompt', lang));
+    printUsage(lang);
     process.exit(1);
   }
   userPromptForFilter = userPrompt;
@@ -531,7 +545,6 @@ if (isMainModule()) {
   const allDeny = [...preset.deny, ...customDeny];
 
   const tempWorkspace = path.join(os.tmpdir(), `agy-companion-${process.pid}`);
-  let tempSettingsCreated = false;
 
   // Clean stale workspace from a previous crashed run with same PID
   try { fs.rmSync(tempWorkspace, { recursive: true, force: true }); } catch (_) {}
@@ -543,7 +556,6 @@ if (isMainModule()) {
     if (allAllow.length > 0) settings.permissions.allow = allAllow;
     if (allDeny.length > 0) settings.permissions.deny = allDeny;
     fs.writeFileSync(path.join(geminiDir, 'settings.json'), JSON.stringify(settings, null, 2));
-    tempSettingsCreated = true;
   } else {
     fs.mkdirSync(tempWorkspace, { recursive: true });
   }
@@ -561,7 +573,7 @@ if (isMainModule()) {
     try {
       pty = require(nodePtyOverride);
     } catch (err) {
-      process.stderr.write(`[agy-companion] Failed to load node-pty from ${nodePtyOverride}:\n  ${err.message}\n`);
+      process.stderr.write(getMessage('errPtyLoadFailed', lang, { path: nodePtyOverride, message: err.message }));
       process.exit(1);
     }
   } else {
@@ -591,11 +603,7 @@ if (isMainModule()) {
       }
 
       if (!loaded) {
-        process.stderr.write(
-          `[agy-companion] Failed to load node-pty.\n` +
-          `[agy-companion] Install via: npm install -g companion-for-agy\n` +
-          `[agy-companion] Or set AGY_COMPANION_PTY_PATH environment variable.\n`
-        );
+        process.stderr.write(getMessage('errPtyInstall', lang));
         process.exit(1);
       }
     }
@@ -605,25 +613,21 @@ if (isMainModule()) {
 
   const resolvedAgyPath = AGY_PATH;
   if (!resolvedAgyPath) {
-    process.stderr.write(
-      `[agy-companion] agy not found.\n` +
-      `[agy-companion] Install agy: https://github.com/google-gemini/gemini-cli\n` +
-      `[agy-companion] Or set AGY_PATH / AGY_COMPANION_AGY_PATH environment variable.\n`
-    );
+    process.stderr.write(getMessage('errAgyNotFound', lang));
     process.exit(1);
   }
 
   if (!fs.existsSync(resolvedAgyPath)) {
-    process.stderr.write(`[agy-companion] agy not found at: ${resolvedAgyPath}\n`);
+    process.stderr.write(getMessage('errAgyNotAt', lang, { path: resolvedAgyPath }));
     process.exit(1);
   }
 
   // ---------- Start agy ----------
 
-  const agyArgs = ['--model', model, ...preset.agyFlags];
+  const agyArgs = includeModel ? ['--model', model, ...preset.agyFlags] : [...preset.agyFlags];
 
   process.stderr.write(
-    `[agy-companion] Starting agy ${agyArgs.join(' ')} (${permissionMode})...\n`
+    getMessage('statusStarting', lang, { args: agyArgs.join(' '), mode: permissionMode })
   );
 
   const ptyProc = pty.spawn(resolvedAgyPath, agyArgs, {
@@ -633,6 +637,18 @@ if (isMainModule()) {
     cwd: tempWorkspace,
     env: { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' },
   });
+
+  let signalHandling = false;
+  function handleExternalSignal(signal) {
+    if (signalHandling) return;
+    signalHandling = true;
+    const code = signal === 'SIGINT' ? 130 : 143;
+    process.stderr.write(getMessage('statusReceivedSignal', lang, { signal }));
+    shutdown(code);
+  }
+
+  process.once('SIGINT', () => handleExternalSignal('SIGINT'));
+  process.once('SIGTERM', () => handleExternalSignal('SIGTERM'));
 
   let rawBuffer = '';
   let detectedModel = null;
@@ -644,10 +660,14 @@ if (isMainModule()) {
   let initIdleTimer = null;
   let responseIdleTimer = null;
   let finished = false;
+  let ptyExited = false;
+  let shutdownCode = null;
+  let forceKillTimer = null;
+  let finalExitTimer = null;
 
   const globalTimeout = setTimeout(() => {
     if (!finished) {
-      process.stderr.write(`[agy-companion] Global timeout (${timeoutMs}ms). Aborting.\n`);
+      process.stderr.write(getMessage('statusTimeout', lang, { timeout: timeoutMs }));
       shutdown(2);
     }
   }, timeoutMs);
@@ -658,29 +678,43 @@ if (isMainModule()) {
     } catch (_) {}
   }
 
+  function scheduleFinalExit(code) {
+    if (finalExitTimer) return;
+    finalExitTimer = setTimeout(() => {
+      if (debug) {
+        const debugPath = path.resolve('agy-debug.log');
+        try { fs.writeFileSync(debugPath, rawBuffer, 'utf8'); } catch (_) {}
+        process.stderr.write(getMessage('statusDebugLog', lang, { path: debugPath }));
+      }
+
+      cleanupTemp();
+      process.exit(code);
+    }, SHUTDOWN_CLEANUP_DELAY_MS);
+  }
+
   function shutdown(code) {
     if (finished) return;
     finished = true;
+    shutdownCode = code;
     clearTimeout(globalTimeout);
     clearTimeout(initIdleTimer);
     clearTimeout(responseIdleTimer);
 
-    try { ptyProc.write('\x03'); } catch (_) {}
-    setTimeout(() => {
-      try { ptyProc.kill(); } catch (_) {}
-
-      if (debug) {
-        const debugPath = path.resolve('agy-debug.log');
-        try { fs.writeFileSync(debugPath, rawBuffer, 'utf8'); } catch (_) {}
-        process.stderr.write(`[agy-companion] Debug log: ${debugPath}\n`);
+    if (!ptyExited) {
+      try { ptyProc.write('\x03'); } catch (_) {}
+      if (code === 0) {
+        scheduleFinalExit(code);
+        return;
       }
-
-      // Windows holds a CWD lock on tempWorkspace until child processes fully terminate
-      setTimeout(() => {
-        cleanupTemp();
-        process.exit(code);
-      }, 1000);
-    }, 500);
+      forceKillTimer = setTimeout(() => {
+        if (!ptyExited) {
+          try { ptyProc.kill(); } catch (_) {}
+        }
+        scheduleFinalExit(code);
+      }, SHUTDOWN_FORCE_KILL_MS);
+    } else {
+      scheduleFinalExit(code);
+    }
   }
 
   function deliverResponse() {
@@ -692,14 +726,8 @@ if (isMainModule()) {
       outputResult(response);
       shutdown(0);
     } else {
-      const fullStripped = stripAnsi(rawBuffer);
-      const fallback = extractResponse(fullStripped, rawBuffer, userPromptForFilter, effectivePromptForFilter);
-      if (fallback) {
-        outputResult(fallback);
-      } else {
-        process.stderr.write('[agy-companion] No usable response received.\n');
-      }
-      shutdown(0);
+      process.stderr.write(getMessage('errNoResponse', lang));
+      shutdown(NO_RESPONSE_EXIT_CODE);
     }
   }
 
@@ -716,11 +744,11 @@ if (isMainModule()) {
     if (questionSent) return;
     questionSent = true;
     responseStartMark = rawBuffer.length;
-    process.stderr.write(`[agy-companion] Init complete. Sending question...\n`);
+    process.stderr.write(getMessage('statusInitComplete', lang));
     ptyProc.write(sanitizeForPty(effectivePrompt) + '\r');
 
     responseIdleTimer = setTimeout(() => {
-      process.stderr.write(`[agy-companion] Response idle timeout. Extracting...\n`);
+      process.stderr.write(getMessage('statusResponseIdle', lang));
       deliverResponse();
     }, RESPONSE_IDLE_MS);
   }
@@ -734,31 +762,31 @@ if (isMainModule()) {
         const modelMatch = recentStripped.match(BANNER_MODEL_PATTERN);
         if (modelMatch) {
           detectedModel = modelMatch[0];
-          process.stderr.write(`[agy-companion] Detected model: ${detectedModel}\n`);
+          process.stderr.write(getMessage('statusDetectedModel', lang, { model: detectedModel }));
         }
       }
 
       if (LOGIN_PROMPT_PATTERN.test(recentStripped)) {
-        process.stderr.write(`[agy-companion] agy is not signed in. Please run 'agy' manually and complete sign-in first.\n`);
+        process.stderr.write(getMessage('errNotSignedIn', lang));
         shutdown(3);
         return;
       }
 
       if (!trustHandled && TRUST_DIALOG_PATTERN.test(recentStripped)) {
         trustHandled = true;
-        process.stderr.write(`[agy-companion] Trust dialog detected. Auto-confirming...\n`);
+        process.stderr.write(getMessage('statusTrustDialog', lang));
         ptyProc.write('\r');
       }
 
       if (!startupComplete) {
         if (STARTUP_DONE_PATTERNS.some(p => p.test(recentStripped))) {
           startupComplete = true;
-          process.stderr.write(`[agy-companion] Startup complete. Waiting for init...\n`);
+          process.stderr.write(getMessage('statusStartupComplete', lang));
           clearTimeout(initIdleTimer);
           initIdleTimer = setTimeout(() => {
             if (!initDone && !questionSent) {
               initDone = true;
-              process.stderr.write(`[agy-companion] Init fallback timeout (${INIT_FALLBACK_MS}ms).\n`);
+              process.stderr.write(getMessage('statusInitFallback', lang, { timeout: INIT_FALLBACK_MS }));
               sendQuestion();
             }
           }, INIT_FALLBACK_MS);
@@ -769,14 +797,14 @@ if (isMainModule()) {
         if (INIT_DONE_PATTERNS.some(p => p.test(recentStripped))) {
           initDone = true;
           clearTimeout(initIdleTimer);
-          process.stderr.write(`[agy-companion] Init detected. Brief pause...\n`);
+          process.stderr.write(getMessage('statusInitDetected', lang));
           setTimeout(sendQuestion, 1000);
         } else {
           clearTimeout(initIdleTimer);
           initIdleTimer = setTimeout(() => {
             if (!initDone && !questionSent) {
               initDone = true;
-              process.stderr.write(`[agy-companion] Init idle timeout.\n`);
+              process.stderr.write(getMessage('statusInitIdle', lang));
               sendQuestion();
             }
           }, INIT_FALLBACK_MS);
@@ -801,12 +829,12 @@ if (isMainModule()) {
 
       if (responseComplete) {
         responseIdleTimer = setTimeout(() => {
-          process.stderr.write(`[agy-companion] Response complete.\n`);
+          process.stderr.write(getMessage('statusResponseComplete', lang));
           deliverResponse();
         }, RESPONSE_DONE_IDLE_MS);
       } else {
         responseIdleTimer = setTimeout(() => {
-          process.stderr.write(`[agy-companion] Response idle timeout.\n`);
+          process.stderr.write(getMessage('statusResponseIdle', lang));
           deliverResponse();
         }, RESPONSE_IDLE_MS);
       }
@@ -814,13 +842,18 @@ if (isMainModule()) {
   });
 
   ptyProc.onExit(({ exitCode }) => {
-    if (!finished) {
-      if (questionSent) {
-        deliverResponse();
-      } else {
-        process.stderr.write('[agy-companion] agy exited before init completed.\n');
-        shutdown(exitCode ?? 1);
-      }
+    ptyExited = true;
+    if (finished) {
+      clearTimeout(forceKillTimer);
+      scheduleFinalExit(shutdownCode ?? exitCode ?? 0);
+      return;
+    }
+
+    if (questionSent) {
+      deliverResponse();
+    } else {
+      process.stderr.write(getMessage('errAgyExited', lang));
+      shutdown(exitCode ?? 1);
     }
   });
 }

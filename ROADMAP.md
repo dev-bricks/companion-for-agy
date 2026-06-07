@@ -17,42 +17,67 @@ The tool is currently **Windows-only verified**. macOS and Linux are expected to
 **TODOs:**
 - [ ] Verify ANSI response color on macOS (is it still `RGB(232,234,237)` or does agy use a different palette?)
 - [ ] Verify ANSI response color on Linux
-- [ ] Handle agy v1.0.x (Homebrew `antigravity-cli`) which lacks `--model` flag — make `--model` conditional or skip it when agy version < 1.1
+- [x] Handle agy v1.0.x (Homebrew `antigravity-cli`) which lacks `--model` flag — `--model` can be skipped via `--no-model` or `AGY_COMPANION_NO_MODEL`
 - [ ] Test node-pty spawn-helper permissions after `npm install` on macOS (prebuilt binaries need +x)
 - [ ] Test trust dialog auto-confirmation flow on macOS/Linux
 - [ ] Add platform-specific CI smoke tests (requires agy authentication in CI — may need to remain manual)
 
 **Diagnostics available now:**
 - `--debug` flag saves raw PTY output to `agy-debug.log` — inspect for actual ANSI color codes on any platform
-- `AGY_COMPANION_RESPONSE_RGB` environment variable override (planned, not yet implemented)
+- `AGY_COMPANION_RESPONSE_RGB` environment variable override for platform/theme-specific response colors
 
 ### Color Fallback / Auto-Probe
 The current ANSI color extraction relies on `RGB(232,234,237)` as the response color. This has been verified on Windows (ConPTY). If agy changes its color scheme or uses different values on macOS/Linux, extraction silently fails.
 
 **Ideas:**
 - `--probe-color`: Run a known-answer prompt ("What is 2+2?"), scan the raw ANSI stream for the color that wraps "4", and cache it per platform
-- Platform-specific RGB override via environment variable (`AGY_COMPANION_RESPONSE_RGB`)
+- [x] Platform-specific RGB override via environment variable (`AGY_COMPANION_RESPONSE_RGB`)
 - Heuristic: find the most frequent non-UI color in the stream
 
 ### Internationalization (i18n)
 
-Currently, pattern matching (trust dialog, startup detection, init detection) relies on English agy output strings, with partial German support for init patterns. CLI help text and error messages are English-only.
+Internationalization is split into three surfaces:
+
+1. **companion-for-agy CLI output**: help text, errors, and status messages owned by this wrapper.
+2. **Documentation**: README, contributing guide, changelog, examples, and release notes.
+3. **agy TUI recognition patterns**: internal regexes for trust dialog, startup readiness, init completion, prompt echo, and response completion.
+
+Empirical status on Windows (2026-06-07): `agy --help` remained English under `LANG=en_US`, `de_DE`, `ja_JP`, and `zh_CN`. Treat agy's CLI help as English-only for now, but do not assume all TUI dialogs, plugins, future agy releases, or platform-specific flows will stay English.
+
+Language target set for user-facing companion text:
+
+| Code | Language | Priority | Scope |
+|------|----------|----------|-------|
+| `en` | English | P0 | Default CLI and canonical docs |
+| `de` | German | P0 | First translated docs and CLI output |
+| `es` | Spanish | P1 | Docs and CLI output |
+| `zh-Hans` | Simplified Chinese | P1 | Docs and CLI output |
+| `ja` | Japanese | P1 | Docs and CLI output |
+| `ru` | Russian | P1 | Docs and CLI output |
+
+Recognition-pattern policy: keep English as baseline; add non-English patterns only when observed in agy output or documented upstream. Avoid guessing translations for critical parser states because false positives can send prompts too early or terminate capture too late.
 
 **Pattern Recognition (critical):**
-- [ ] Audit all regex patterns (`TRUST_DIALOG_PATTERN`, `STARTUP_DONE_PATTERNS`, `INIT_DONE_PATTERNS`) for locale dependency
-- [ ] Add German patterns for trust dialog and startup detection
-- [ ] Test with agy running in non-English locales — does agy localize its TUI strings?
+- [x] Audit all regex patterns (`TRUST_DIALOG_PATTERN`, `STARTUP_DONE_PATTERNS`, `INIT_DONE_PATTERNS`) for locale dependency
+- [x] Add German patterns for trust dialog and startup detection
+- [x] Test agy CLI help under non-English locales — observed English output for `en_US`, `de_DE`, `ja_JP`, `zh_CN` on Windows
+- [ ] Test full agy TUI under non-English locales — does agy localize dialogs beyond `--help`?
+- [ ] Add observed Spanish, Simplified Chinese, Japanese, and Russian recognition patterns only if agy emits localized TUI strings
 - [ ] Fallback strategy: if no known pattern matches within timeout, proceed anyway (graceful degradation)
 
 **CLI Output:**
-- [ ] Extract all user-facing strings (help text, error messages, status output) into a locale map
-- [ ] Auto-detect locale from `LANG`/`LC_ALL` environment variable or `--lang` flag
-- [ ] Supported languages: English (default), German
+- [x] Extract all user-facing strings (help text, error messages, status output) into a locale map
+- [x] Auto-detect locale from `LANG`/`LC_ALL` environment variable or `--lang` flag
+- [x] Supported CLI languages: English (default), German, Spanish, Simplified Chinese, Japanese, Russian
 
 **Documentation:**
 - [x] README.md (English) + README_de.md (German) with language switcher badges
-- [ ] CONTRIBUTING.md — German translation
-- [ ] CHANGELOG.md — bilingual or German translation
+- [x] CONTRIBUTING.md — German translation
+- [x] CHANGELOG.md — bilingual or German translation
+- [x] README_es.md — Spanish
+- [x] README_zh-Hans.md — Simplified Chinese
+- [x] README_ja.md — Japanese
+- [x] README_ru.md — Russian
 
 ### Multi-Turn Mode
 Currently, each invocation spawns a fresh agy process (one question, one answer). A persistent mode that keeps the PTY alive across multiple prompts would reduce startup overhead for batch workloads.
@@ -68,9 +93,9 @@ Detect whether agy's response is Markdown, JSON, or plain text and expose this i
 Items identified during the systematic bug sweep that are design improvements, not defects:
 
 - **Response idle timer minimum-progress threshold:** Currently, any single byte within the idle window resets the timer. A very slow stream (1 char/10s) keeps the timer alive indefinitely — only the global timeout catches it. Add a "minimum bytes since last check" threshold.
-- **Signal handling for external kill:** Register `process.on('SIGTERM')` and `process.on('SIGINT')` to ensure temp workspace cleanup when the process is killed externally (e.g., by a parent orchestrator or Ctrl+C in a pipeline).
-- **Dead code cleanup:** `tempSettingsCreated` variable is set but never read. Cleanup works unconditionally via `cleanupTemp()`.
-- **Prompt-echo filter edge case:** Very short prompts (≤2 chars) identical to the response text are incorrectly filtered as prompt echoes. Rare in practice (requires the user's question to be the same as the answer), but theoretically possible.
+- [x] **Signal handling for external kill:** Register `process.on('SIGTERM')` and `process.on('SIGINT')` to ensure temp workspace cleanup when the process is killed externally (e.g., by a parent orchestrator or Ctrl+C in a pipeline).
+- [x] **Dead code cleanup:** `tempSettingsCreated` variable is set but never read. Cleanup works unconditionally via `cleanupTemp()`.
+- [x] **Prompt-echo filter edge case:** Very short prompts (≤2 chars) identical to the response text are incorrectly filtered as prompt echoes. Rare in practice (requires the user's question to be the same as the answer), but theoretically possible.
 
 ## Completed (v1.2.0-alpha.1)
 

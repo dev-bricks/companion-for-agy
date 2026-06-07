@@ -6,29 +6,35 @@
 
 [![npm](https://img.shields.io/npm/v/companion-for-agy)](https://www.npmjs.com/package/companion-for-agy)
 [![CI](https://github.com/dev-bricks/companion-for-agy/actions/workflows/tests.yml/badge.svg)](https://github.com/dev-bricks/companion-for-agy/actions/workflows/tests.yml)
+[![English](https://img.shields.io/badge/lang-English-blue)](README.md)
 [![Deutsch](https://img.shields.io/badge/lang-Deutsch-blue)](README_de.md)
+[![Español](https://img.shields.io/badge/lang-Espa%C3%B1ol-blue)](README_es.md)
+[![简体中文](https://img.shields.io/badge/lang-%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-blue)](README_zh-Hans.md)
+[![日本語](https://img.shields.io/badge/lang-%E6%97%A5%E6%9C%AC%E8%AA%9E-blue)](README_ja.md)
+[![Русский](https://img.shields.io/badge/lang-%D0%A0%D1%83%D1%81%D1%81%D0%BA%D0%B8%D0%B9-blue)](README_ru.md)
 
-> **Unofficial** — not affiliated with or endorsed by Google.
+> **Unofficial** - not affiliated with or endorsed by Google.
 
 PTY-based wrapper for **agy** (Antigravity CLI / Gemini CLI) that captures Gemini responses from subprocesses.
 
 ## Problem
 
-`agy -p` (print mode) returns exit 0 but writes no output to stdout — the TUI text-drip renderer (`text_drip.go`) writes to the terminal buffer instead. This is a known bug:
+`agy -p` (print mode) exits with code 0 but writes no response to stdout. Instead, the TUI text-drip renderer (`text_drip.go`) writes to the terminal buffer. Known upstream issues:
 
 - [antigravity-cli#76](https://github.com/google-antigravity/antigravity-cli/issues/76)
 - [gemini-cli#27466](https://github.com/google-gemini/gemini-cli/issues/27466)
 - [antigravity-cli#115](https://github.com/google-antigravity/antigravity-cli/issues/115)
 
-This means no other agent (Claude Code, Codex, CI/CD) can programmatically read agy's responses.
+That means other agents such as Claude Code, Codex, or CI/CD scripts cannot programmatically read agy's responses.
 
 ## Solution
 
-`companion-for-agy` spawns agy inside a virtual terminal via `node-pty` (ConPTY on Windows, forkpty on macOS/Linux) and extracts the response from the ANSI color stream. agy's response text uses `RGB(232,234,237)` — the wrapper tracks ANSI color state and collects only text in that color.
+`companion-for-agy` starts agy inside a virtual terminal via `node-pty` (ConPTY on Windows, forkpty on macOS/Linux) and extracts the response from the ANSI color stream. agy's response text currently uses `RGB(232,234,237)`, so the wrapper tracks ANSI color state and collects only text in that color.
 
-> **Platform note:** The ANSI color extraction (`RGB(232,234,237)`) and the `--model` flag have been verified on **Windows** with agy >= 1.1. macOS and Linux are expected to work via `node-pty` since agy uses the same Go TUI renderer. However:
-> - **agy v1.0.x** (Homebrew `antigravity-cli`) does not support `--model` — the tool will fail with "flags provided but not defined". Update agy or omit `--model` (requires code change).
-> - The exact RGB response color has not been independently confirmed on non-Windows platforms. If color extraction returns empty results, try `--debug` and check `agy-debug.log` for the actual color codes.
+> **Platform note:** ANSI color extraction (`RGB(232,234,237)`) and the `--model` flag have been verified on **Windows** with agy >= 1.1. macOS and Linux are expected to work through `node-pty`, but the exact response color still needs independent verification there.
+>
+> - **agy v1.0.x** (Homebrew `antigravity-cli`) does not support `--model`; use `--no-model` or `AGY_COMPANION_NO_MODEL=1`.
+> - If color extraction returns an empty result, run with `--debug` and inspect `agy-debug.log`.
 
 ## Installation
 
@@ -40,21 +46,15 @@ npm install -g companion-for-agy
 
 - **Node.js >= 18**
 - **agy** ([Gemini CLI](https://github.com/google-gemini/gemini-cli)) installed and authenticated
-- **C/C++ build tools** for `node-pty` native compilation:
-  - **Windows:** [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) + Python 3
+- **C/C++ build tools** for native `node-pty` compilation:
+  - **Windows:** Visual Studio Build Tools + Python 3
   - **macOS:** `xcode-select --install`
   - **Linux:** `sudo apt install build-essential python3` (Debian/Ubuntu)
 
-### Troubleshooting `node-pty` build errors
-
-If `npm install` fails with native compilation errors:
+If native compilation fails, run:
 
 ```bash
-# All platforms: rebuild native modules
 npm rebuild node-pty
-
-# Windows: if cl.exe is not found, install Visual Studio Build Tools
-# then open "Developer Command Prompt" or run from "x64 Native Tools"
 ```
 
 ## Usage
@@ -67,17 +67,17 @@ companion-for-agy [options] "prompt"
 
 | Flag | Description |
 |------|-------------|
-| `--sandbox` | Sandbox mode (default) — tools in container |
+| `--sandbox` | Sandbox mode (default), tools in container |
 | `--skip-permissions` | All tools without confirmation (YOLO) |
-| `--no-tools` | Pure chat — no tool execution |
-| `--researcher` | Web search allowed, no file changes |
-| `--read-only` | Read-only, no modifications |
+| `--no-tools` | Pure chat, no tool execution |
+| `--researcher` | Web/search research allowed, shell commands and file changes denied |
+| `--read-only` | File reads allowed, shell commands and modifications denied |
 
 ### Custom Rules
 
 ```bash
 --allow "read_file(/path)"    # Allowlist rule (repeatable)
---deny "command(rm)"           # Denylist rule (repeatable)
+--deny "command(rm)"          # Denylist rule (repeatable)
 ```
 
 Formats match agy's own permission system (`settings.json`).
@@ -87,72 +87,88 @@ Formats match agy's own permission system (`settings.json`).
 | Flag | Description |
 |------|-------------|
 | `--model <model>` | Gemini model (default: `gemini-3.5-flash`) |
-| `--timeout <ms>` | Timeout in ms (default: 120000) |
+| `--no-model` | Do not pass `--model` to agy; useful for agy v1.0.x |
+| `--timeout <ms>` | Timeout in ms (default: `120000`) |
 | `--json` | Output as JSON object |
 | `--debug` | Save raw PTY output to `agy-debug.log` |
+| `--lang <code>` | CLI output language: `en`, `de`, `es`, `zh-Hans`, `ja`, `ru` |
+| `--` | Stop option parsing; use before prompts that start with `-` |
 
 ### Environment Variables
 
 | Variable | Description |
 |----------|-------------|
-| `AGY_COMPANION_AGY_PATH` | Path to agy binary (auto-detected if not set) |
+| `AGY_COMPANION_AGY_PATH` | Path to agy binary (auto-detected if unset) |
 | `AGY_PATH` | Alternative path to agy binary |
+| `AGY_COMPANION_NO_MODEL` | Set to `1`, `true`, or `yes` to omit `--model` |
+| `AGY_COMPANION_RESPONSE_RGB` | Override response color as `R,G,B` or `R;G;B` |
 
 ### Examples
 
 ```bash
-# Simple question
 companion-for-agy "What is the capital of Bavaria?"
-
-# As advisor (no tool use)
 companion-for-agy --no-tools "Review this code: ..."
-
-# Web research
 companion-for-agy --researcher "Latest info on Node.js 24"
-
-# Read-only with additional git permission
 companion-for-agy --read-only --allow "command(git log)" "prompt"
-
-# JSON output for programmatic use
 companion-for-agy --json --model gemini-3.5-pro "prompt"
-# → {"response":"...","model":"Gemini 3.5 Pro (High)","requestedModel":"gemini-3.5-pro","permissionMode":"sandbox"}
+companion-for-agy --no-model "prompt"
+companion-for-agy --lang de --help
+companion-for-agy --no-tools -- "-dash-prefixed prompt"
 ```
 
-> **JSON fields:** `model` reports the actual model detected from agy's banner (e.g., `"Gemini 3.5 Flash (Medium)"`). `requestedModel` is what was passed via `--model`. If banner detection fails, `model` falls back to `requestedModel`.
+JSON output includes `response`, `model`, `requestedModel`, and `permissionMode`. `model` is detected from agy's banner when possible and falls back to `requestedModel`.
+
+## Internationalization Scope
+
+There are three separate i18n surfaces:
+
+1. **companion-for-agy CLI output:** help text, errors, and status lines produced by this wrapper.
+2. **Documentation:** README, contributing guide, changelog, and examples.
+3. **agy TUI recognition patterns:** internal regexes that detect agy's trust dialog, startup readiness, init completion, and response completion.
+
+Local Windows checks showed that `agy --help` stayed English under `LANG=en_US`, `de_DE`, `ja_JP`, and `zh_CN`. That suggests agy's CLI help is currently English-only, but it does not prove every TUI dialog, future agy release, plugin, or OS-specific flow will stay English.
+
+Planned user-facing languages:
+
+| Code | Language | Scope |
+|------|----------|-------|
+| `en` | English | Default CLI and canonical docs |
+| `de` | German | Translated docs and CLI output |
+| `es` | Spanish | Translated docs and CLI output |
+| `zh-Hans` | Simplified Chinese | Translated docs and CLI output |
+| `ja` | Japanese | Translated docs and CLI output |
+| `ru` | Russian | Translated docs and CLI output |
+
+Recognition patterns are not blindly translated. English stays the baseline; non-English patterns are added only when agy actually emits those strings or a stable upstream string is documented.
 
 ## How It Works
 
-```
-┌────────────────────┐       PTY       ┌─────────────┐
-│ companion-for-agy  │ ─────────────▸  │     agy     │
-│     (Node.js)      │ ◂────────────── │  (Go TUI)   │
-│                    │  ANSI stream    │             │
-│  Color-Based       │                 │ text_drip.go│
-│  Extraction        │                 │ RGB(232,234,│
-│                    │                 │     237)    │
-└────────┬───────────┘                 └─────────────┘
-         │
-         ▼ stdout
-     Response text
+```text
+companion-for-agy (Node.js)
+  -> starts agy in a PTY
+  -> detects trust/startup/init states
+  -> sends the prompt
+  -> captures ANSI response-color segments
+  -> writes response text to stdout
 ```
 
-**5-Phase State Machine:**
+**5-phase state machine:**
 
-1. **Trust** — detect and auto-confirm workspace trust dialog
-2. **Startup** — detect main UI readiness (`? for shortcuts`)
-3. **Init** — wait for GEMINI.md initialization (pattern matching or 20s fallback)
-4. **Question** — send prompt, set response marker
-5. **Response** — read response via ANSI color extraction, adaptive idle timer
+1. **Trust:** detect and auto-confirm workspace trust dialog
+2. **Startup:** detect main UI readiness (`? for shortcuts`)
+3. **Init:** wait for initialization, with timeout fallback
+4. **Question:** send prompt and mark response start
+5. **Response:** extract response via ANSI color and adaptive idle timers
 
 ## Use Cases
 
-- **Multi-agent orchestration**: Claude Code, Codex, or other agents querying Gemini via agy
-- **CI/CD pipelines**: automated Gemini queries in build scripts
-- **Scripting**: any scenario where agy's response needs to be captured as text
+- Multi-agent orchestration: Claude Code, Codex, or other agents querying Gemini via agy
+- CI/CD scripts that need text output from agy
+- Local automation where agy's TUI response must be captured as stdout
 
 ## Background
 
-This tool was built because three CLI agents — **Claude Code**, **Codex**, and **agy** — need to call each other as fallback advisors. While Claude → Codex and agy → Claude/Codex already work, Claude → agy was blocked by the TUI stdout bug.
+This tool was built because three CLI agents - Claude Code, Codex, and agy - need to call each other as fallback advisors. Claude to Codex and agy to Claude/Codex already worked; Claude to agy was blocked by the TUI stdout bug.
 
 ## License
 
