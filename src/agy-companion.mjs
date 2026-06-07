@@ -651,7 +651,7 @@ if (isMainModule()) {
 
   function cleanupTemp() {
     try {
-      fs.rmSync(tempWorkspace, { recursive: true, force: true });
+      fs.rmSync(tempWorkspace, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
     } catch (_) {}
   }
 
@@ -672,8 +672,11 @@ if (isMainModule()) {
         process.stderr.write(`[agy-companion] Debug log: ${debugPath}\n`);
       }
 
-      cleanupTemp();
-      process.exit(code);
+      // Windows holds a CWD lock on tempWorkspace until child processes fully terminate
+      setTimeout(() => {
+        cleanupTemp();
+        process.exit(code);
+      }, 1000);
     }, 500);
   }
 
