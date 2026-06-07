@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.2.0] - 2026-06-07
+## [1.2.0-alpha.1] - 2026-06-07
 
 ### Changed
 - Package renamed to `companion-for-agy` (legal/trademark distancing via "for" pattern)

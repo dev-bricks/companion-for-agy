@@ -24,7 +24,9 @@ This means no other agent (Claude Code, Codex, CI/CD) can programmatically read 
 
 `companion-for-agy` spawns agy inside a virtual terminal via `node-pty` (ConPTY on Windows, forkpty on macOS/Linux) and extracts the response from the ANSI color stream. agy's response text uses `RGB(232,234,237)` — the wrapper tracks ANSI color state and collects only text in that color.
 
-> **Platform note:** The ANSI color extraction (`RGB(232,234,237)`) has been verified on **Windows** (ConPTY). macOS and Linux are expected to work via `node-pty` since agy uses the same Go TUI renderer, but the exact RGB values have not been independently confirmed on those platforms. If color extraction returns empty results, try `--debug` and check `agy-debug.log` for the actual color codes.
+> **Platform note:** The ANSI color extraction (`RGB(232,234,237)`) and the `--model` flag have been verified on **Windows** with agy >= 1.1. macOS and Linux are expected to work via `node-pty` since agy uses the same Go TUI renderer. However:
+> - **agy v1.0.x** (Homebrew `antigravity-cli`) does not support `--model` — the tool will fail with "flags provided but not defined". Update agy or omit `--model` (requires code change).
+> - The exact RGB response color has not been independently confirmed on non-Windows platforms. If color extraction returns empty results, try `--debug` and check `agy-debug.log` for the actual color codes.
 
 ## Installation
 
