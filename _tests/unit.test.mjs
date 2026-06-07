@@ -8,6 +8,7 @@ import {
   STARTUP_DONE_PATTERNS, INIT_DONE_PATTERNS,
   DEFAULT_MODEL, findAgyPath, AGY_PATH, parseDurationToMs,
   DEFAULT_RESPONSE_RGB, parseResponseRgb, responseRgbToSgrParams,
+  shouldResetIdleTimer, RESPONSE_MIN_PROGRESS_BYTES,
 } from '../src/agy-companion.mjs';
 import { detectLocale, getMessage } from '../src/locales.mjs';
 
@@ -864,5 +865,34 @@ describe('detectResponseComplete', () => {
     // Three bare > at end: last one should still be detected as complete
     const response = '> Was ist 2+2?\nAntwort.\n>\n>\n>';
     assert.equal(detectResponseComplete(response, 'Was ist 2+2'), true);
+  });
+});
+
+// ---------- shouldResetIdleTimer ----------
+
+describe('shouldResetIdleTimer', () => {
+  it('returns false for trickle below threshold', () => {
+    assert.equal(
+      shouldResetIdleTimer({ newLength: 5, lastProgressLength: 0, minProgressBytes: RESPONSE_MIN_PROGRESS_BYTES, responseComplete: false }),
+      false
+    );
+  });
+
+  it('returns true when progress meets threshold', () => {
+    assert.equal(
+      shouldResetIdleTimer({ newLength: 10, lastProgressLength: 0, minProgressBytes: RESPONSE_MIN_PROGRESS_BYTES, responseComplete: false }),
+      true
+    );
+  });
+
+  it('returns true when responseComplete even if below threshold', () => {
+    assert.equal(
+      shouldResetIdleTimer({ newLength: 3, lastProgressLength: 0, minProgressBytes: RESPONSE_MIN_PROGRESS_BYTES, responseComplete: true }),
+      true
+    );
+  });
+
+  it('RESPONSE_MIN_PROGRESS_BYTES is 10', () => {
+    assert.equal(RESPONSE_MIN_PROGRESS_BYTES, 10);
   });
 });

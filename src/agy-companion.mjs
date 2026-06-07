@@ -36,6 +36,13 @@ export const NO_RESPONSE_EXIT_CODE = 4;
 export const SHUTDOWN_FORCE_KILL_MS = 2000;
 export const SHUTDOWN_CLEANUP_DELAY_MS = 1000;
 export const DEFAULT_RESPONSE_RGB = [232, 234, 237];
+// Minimum new bytes required to justify resetting the idle timer (guards against 1-byte trickle loops)
+export const RESPONSE_MIN_PROGRESS_BYTES = 10;
+
+// Pure helper — extracted for testability
+export function shouldResetIdleTimer({ newLength, lastProgressLength, minProgressBytes, responseComplete }) {
+  return responseComplete || (newLength - lastProgressLength) >= minProgressBytes;
+}
 
 const require = createRequire(import.meta.url);
 
@@ -696,6 +703,7 @@ if (isMainModule()) {
   let shutdownCode = null;
   let forceKillTimer = null;
   let finalExitTimer = null;
+  let lastProgressResponseLength = 0;
 
   const globalTimeout = setTimeout(() => {
     if (!finished) {
@@ -776,6 +784,7 @@ if (isMainModule()) {
     if (questionSent) return;
     questionSent = true;
     responseStartMark = rawBuffer.length;
+    lastProgressResponseLength = 0;
     process.stderr.write(getMessage('statusInitComplete', lang));
     ptyProc.write(sanitizeForPty(effectivePrompt) + '\r');
 
@@ -843,21 +852,24 @@ if (isMainModule()) {
         }
       }
     } else if (questionSent && !finished) {
-      clearTimeout(responseIdleTimer);
-
       const responseSoFar = stripAnsi(rawBuffer.slice(responseStartMark));
       const responseComplete = detectResponseComplete(responseSoFar, userPromptForFilter);
+      const newLength = responseSoFar.length;
 
-      if (responseComplete) {
-        responseIdleTimer = setTimeout(() => {
-          process.stderr.write(getMessage('statusResponseComplete', lang));
-          deliverResponse();
-        }, RESPONSE_DONE_IDLE_MS);
-      } else {
-        responseIdleTimer = setTimeout(() => {
-          process.stderr.write(getMessage('statusResponseIdle', lang));
-          deliverResponse();
-        }, RESPONSE_IDLE_MS);
+      if (shouldResetIdleTimer({ newLength, lastProgressLength: lastProgressResponseLength, minProgressBytes: RESPONSE_MIN_PROGRESS_BYTES, responseComplete })) {
+        lastProgressResponseLength = newLength;
+        clearTimeout(responseIdleTimer);
+        if (responseComplete) {
+          responseIdleTimer = setTimeout(() => {
+            process.stderr.write(getMessage('statusResponseComplete', lang));
+            deliverResponse();
+          }, RESPONSE_DONE_IDLE_MS);
+        } else {
+          responseIdleTimer = setTimeout(() => {
+            process.stderr.write(getMessage('statusResponseIdle', lang));
+            deliverResponse();
+          }, RESPONSE_IDLE_MS);
+        }
       }
     }
   });

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-06-07
+
+### Fixed
+- **Response-Idle-Timer:** 1-byte trickle chunks could reset the idle timer indefinitely, making the global timeout the only backstop. The new `shouldResetIdleTimer` pure function (exported for testability) only resets the timer when ≥10 bytes of new ANSI-stripped response content have arrived, or when `detectResponseComplete` fires — whichever comes first. The constant `RESPONSE_MIN_PROGRESS_BYTES = 10` controls the threshold.
+
 ## [1.3.1] - 2026-06-07
 
 ### Fixed (Bugsweep)
