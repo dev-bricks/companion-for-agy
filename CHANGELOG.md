@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-06-08
+
+### Fixed
+- **Sidebar Workspace Leak:** When running under temporary workspaces (e.g. `agy-companion-<PID>`), the Antigravity IDE automatically registers these temp directories as projects in `.gemini/config/projects/<uuid>.json`. They were never removed, leading to sidebar clutter. Added projects cleanup logic in `cleanupTemp()` to find and delete its corresponding `.json` project configuration file upon exit.
+
 ## [1.3.2] - 2026-06-07
 
 ### Fixed

@@ -1,4 +1,4 @@
-﻿import { describe, it } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   stripAnsi, isNoiseLine, extractByResponseColor,
@@ -873,21 +873,35 @@ describe('detectResponseComplete', () => {
 describe('shouldResetIdleTimer', () => {
   it('returns false for trickle below threshold', () => {
     assert.equal(
-      shouldResetIdleTimer({ newLength: 5, lastProgressLength: 0, minProgressBytes: RESPONSE_MIN_PROGRESS_BYTES, responseComplete: false }),
+      shouldResetIdleTimer({ newLength: 5, lastProgressLength: 0, minProgressBytes: RESPONSE_MIN_PROGRESS_BYTES, responseComplete: false, lastResponseComplete: false }),
       false
     );
   });
 
   it('returns true when progress meets threshold', () => {
     assert.equal(
-      shouldResetIdleTimer({ newLength: 10, lastProgressLength: 0, minProgressBytes: RESPONSE_MIN_PROGRESS_BYTES, responseComplete: false }),
+      shouldResetIdleTimer({ newLength: 10, lastProgressLength: 0, minProgressBytes: RESPONSE_MIN_PROGRESS_BYTES, responseComplete: false, lastResponseComplete: false }),
       true
     );
   });
 
-  it('returns true when responseComplete even if below threshold', () => {
+  it('returns true when responseComplete transitions from false to true', () => {
     assert.equal(
-      shouldResetIdleTimer({ newLength: 3, lastProgressLength: 0, minProgressBytes: RESPONSE_MIN_PROGRESS_BYTES, responseComplete: true }),
+      shouldResetIdleTimer({ newLength: 3, lastProgressLength: 0, minProgressBytes: RESPONSE_MIN_PROGRESS_BYTES, responseComplete: true, lastResponseComplete: false }),
+      true
+    );
+  });
+
+  it('returns false when responseComplete remains true (prevents trickle-reset)', () => {
+    assert.equal(
+      shouldResetIdleTimer({ newLength: 5, lastProgressLength: 3, minProgressBytes: RESPONSE_MIN_PROGRESS_BYTES, responseComplete: true, lastResponseComplete: true }),
+      false
+    );
+  });
+
+  it('returns true when responseComplete transitions from true to false', () => {
+    assert.equal(
+      shouldResetIdleTimer({ newLength: 15, lastProgressLength: 10, minProgressBytes: RESPONSE_MIN_PROGRESS_BYTES, responseComplete: false, lastResponseComplete: true }),
       true
     );
   });

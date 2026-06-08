@@ -40,8 +40,14 @@ export const DEFAULT_RESPONSE_RGB = [232, 234, 237];
 export const RESPONSE_MIN_PROGRESS_BYTES = 10;
 
 // Pure helper — extracted for testability
-export function shouldResetIdleTimer({ newLength, lastProgressLength, minProgressBytes, responseComplete }) {
-  return responseComplete || (newLength - lastProgressLength) >= minProgressBytes;
+export function shouldResetIdleTimer({ newLength, lastProgressLength, minProgressBytes, responseComplete, lastResponseComplete }) {
+  if (responseComplete !== lastResponseComplete) {
+    return true;
+  }
+  if (responseComplete) {
+    return false;
+  }
+  return (newLength - lastProgressLength) >= minProgressBytes;
 }
 
 const require = createRequire(import.meta.url);
@@ -704,6 +710,7 @@ if (isMainModule()) {
   let forceKillTimer = null;
   let finalExitTimer = null;
   let lastProgressResponseLength = 0;
+  let lastResponseComplete = false;
 
   const globalTimeout = setTimeout(() => {
     if (!finished) {
@@ -713,6 +720,26 @@ if (isMainModule()) {
   }, timeoutMs);
 
   function cleanupTemp() {
+    try {
+      const projectsDir = path.join(os.homedir(), '.gemini', 'config', 'projects');
+      if (fs.existsSync(projectsDir)) {
+        const files = fs.readdirSync(projectsDir);
+        for (const file of files) {
+          if (file.endsWith('.json')) {
+            const p = path.join(projectsDir, file);
+            try {
+              const content = fs.readFileSync(p, 'utf8');
+              if (content.includes(`agy-companion-${process.pid}`)) {
+                const tempP = p + '.cleanup_tmp';
+                fs.renameSync(p, tempP);
+                fs.unlinkSync(tempP);
+              }
+            } catch (_) {}
+          }
+        }
+      }
+    } catch (_) {}
+
     try {
       fs.rmSync(tempWorkspace, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
     } catch (_) {}
@@ -856,8 +883,9 @@ if (isMainModule()) {
       const responseComplete = detectResponseComplete(responseSoFar, userPromptForFilter);
       const newLength = responseSoFar.length;
 
-      if (shouldResetIdleTimer({ newLength, lastProgressLength: lastProgressResponseLength, minProgressBytes: RESPONSE_MIN_PROGRESS_BYTES, responseComplete })) {
+      if (shouldResetIdleTimer({ newLength, lastProgressLength: lastProgressResponseLength, minProgressBytes: RESPONSE_MIN_PROGRESS_BYTES, responseComplete, lastResponseComplete })) {
         lastProgressResponseLength = newLength;
+        lastResponseComplete = responseComplete;
         clearTimeout(responseIdleTimer);
         if (responseComplete) {
           responseIdleTimer = setTimeout(() => {
