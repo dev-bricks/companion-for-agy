@@ -1,0 +1,44 @@
+# companion-for-agy - PTY-based wrapper for Antigravity (agy / Gemini CLI)
+
+> companion-for-agy is an unofficial PTY-based Node.js wrapper for agy (Antigravity CLI / Gemini CLI) that captures Gemini responses from subprocesses. Since agy writes its output to the terminal buffer instead of stdout in print mode, other agents (like Claude Code, Codex, or CI scripts) cannot programmatically read its responses. companion-for-agy solves this by spawning agy inside a virtual terminal (using node-pty) and extracting only the response text based on its ANSI color stream.
+
+Part of the dev-bricks family. Node.js, MIT.
+
+## Docs
+
+- [README.md](https://github.com/dev-bricks/companion-for-agy/blob/master/README.md): Primary documentation, installation guide, usage, options, and environment variables.
+- [README_de.md](https://github.com/dev-bricks/companion-for-agy/blob/master/README_de.md): German localization.
+- [README_es.md](https://github.com/dev-bricks/companion-for-agy/blob/master/README_es.md): Spanish localization.
+- [README_ja.md](https://github.com/dev-bricks/companion-for-agy/blob/master/README_ja.md): Japanese localization.
+- [README_ru.md](https://github.com/dev-bricks/companion-for-agy/blob/master/README_ru.md): Russian localization.
+- [README_zh-Hans.md](https://github.com/dev-bricks/companion-for-agy/blob/master/README_zh-Hans.md): Simplified Chinese localization.
+- [CHANGELOG.md](https://github.com/dev-bricks/companion-for-agy/blob/master/CHANGELOG.md): Project version history.
+- [LICENSE](https://github.com/dev-bricks/companion-for-agy/blob/master/LICENSE): MIT license text.
+
+## Usage & Commands
+
+```bash
+companion-for-agy [options] "prompt"
+```
+
+### Permission Modes
+- `--sandbox`: Sandbox mode (default), tools run inside a container.
+- `--skip-permissions`: Executes all tools without confirmation.
+- `--no-tools`: Pure chat mode, disables tool execution.
+- `--researcher`: Allows web search/research, denies commands and file modifications.
+- `--read-only`: Allows file reads, denies shell commands and modifications.
+
+### Options
+- `--model <model>`: Specify Gemini model (default: `gemini-3.5-flash`).
+- `--no-model`: Do not pass `--model` to agy (useful for older agy v1.0.x).
+- `--timeout <ms>`: Set execution timeout in ms (default: `120000`).
+- `--json`: Format CLI output as a JSON object containing the response and metadata.
+- `--debug`: Enable verbose debug logging to `agy-debug.log`.
+- `--lang <code>`: Set CLI output language (en, de, es, zh-Hans, ja, ru).
+
+## Related Projects (dev-bricks & ellmos family)
+
+- [safe-start-for-codex](https://github.com/dev-bricks/safe-start-for-codex): Startup surge prevention for Codex Desktop automations.
+- [ellmos-filecommander-mcp](https://github.com/ellmos-ai/ellmos-filecommander-mcp): Filesystem and process orchestration.
+- [ellmos-codecommander-mcp](https://github.com/ellmos-ai/ellmos-codecommander-mcp): Code analysis and AST processing.
+- [ellmos-controlcenter-mcp](https://github.com/ellmos-ai/ellmos-controlcenter-mcp): MCP stack control plane.
