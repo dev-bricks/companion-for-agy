@@ -42,3 +42,21 @@ companion-for-agy [options] "prompt"
 - [ellmos-filecommander-mcp](https://github.com/ellmos-ai/ellmos-filecommander-mcp): Filesystem and process orchestration.
 - [ellmos-codecommander-mcp](https://github.com/ellmos-ai/ellmos-codecommander-mcp): Code analysis and AST processing.
 - [ellmos-controlcenter-mcp](https://github.com/ellmos-ai/ellmos-controlcenter-mcp): MCP stack control plane.
+
+## Audience
+
+- Developers integrating agy/Gemini CLI into multi-agent pipelines or CI/CD scripts
+- Claude Code, Codex, or n8n users who need programmatic Gemini responses from subprocesses
+- Node.js developers building multi-agent orchestration tools across Claude, Gemini, and Codex
+- AI automation engineers who need stdout-captured LLM responses for scripting
+
+## Search Phrases
+
+- companion-for-agy agy wrapper stdout capture Node.js
+- Gemini CLI programmatic response capture PTY subprocess
+- agy antigravity CLI stdout fix multi-agent
+- Claude Code Codex Gemini integration node-pty
+- capture agy response from subprocess ConPTY wrapper
+- npm companion-for-agy agy-companion install
+
+## Last-checked: 2026-06-10
