@@ -58,5 +58,13 @@ companion-for-agy [options] "prompt"
 - Claude Code Codex Gemini integration node-pty
 - capture agy response from subprocess ConPTY wrapper
 - npm companion-for-agy agy-companion install
+- dev-bricks companion-for-agy GitHub
+- Antigravity CLI subprocess response capture
+- agy Gemini CLI PTY wrapper for automation
+- node-pty ConPTY Gemini CLI stdout capture
 
-## Last-checked: 2026-06-10
+## Disambiguation
+
+companion-for-agy is not the official Gemini CLI Companion VS Code extension, not a chatbot companion app, and not related to Databricks Agent Bricks or Bricks Builder. It is the dev-bricks Node.js wrapper for making agy/Gemini CLI responses readable from subprocess stdout.
+
+## Last-checked: 2026-06-12

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Documentation
+- Added start-here tables and explicit discovery/disambiguation context to the English and German READMEs.
+- Refreshed `llms.txt` search phrases and package keywords for agy/Gemini CLI stdout-capture queries.
+
 ## [1.3.3] - 2026-06-08
 
 ### Fixed

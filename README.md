@@ -17,6 +17,14 @@
 
 PTY-based wrapper for **agy** (Antigravity CLI / Gemini CLI) that captures Gemini responses from subprocesses.
 
+| Start here | Link |
+|---|---|
+| Install | `npm install -g companion-for-agy` |
+| Run | `companion-for-agy --json --no-tools "prompt"` |
+| German docs | [README_de.md](README_de.md) |
+| Changelog | [CHANGELOG.md](CHANGELOG.md) |
+| npm package | [npmjs.com/package/companion-for-agy](https://www.npmjs.com/package/companion-for-agy) |
+
 ## Problem
 
 `agy -p` (print mode) exits with code 0 but writes no response to stdout. Instead, the TUI text-drip renderer (`text_drip.go`) writes to the terminal buffer. Known upstream issues:
@@ -165,6 +173,12 @@ companion-for-agy (Node.js)
 - Multi-agent orchestration: Claude Code, Codex, or other agents querying Gemini via agy
 - CI/CD scripts that need text output from agy
 - Local automation where agy's TUI response must be captured as stdout
+
+## Discovery Context
+
+Search for **`dev-bricks/companion-for-agy`**, **`companion-for-agy stdout capture`**, **`agy Gemini CLI PTY wrapper`**, or **`Antigravity CLI subprocess response capture`** to find this project directly.
+
+This project is not the official Gemini CLI Companion VS Code extension, not a generic AI companion chatbot, and not related to Databricks Agent Bricks. It is a Node.js `node-pty`/ConPTY wrapper for capturing agy or Gemini CLI responses as stdout for automation.
 
 ## Background
 

@@ -1,7 +1,7 @@
 {
   "name": "companion-for-agy",
   "version": "1.3.3",
-  "description": "Unofficial PTY-based wrapper for agy (Antigravity CLI / Gemini CLI) - captures Gemini responses that agy writes to the terminal buffer instead of stdout",
+  "description": "Unofficial node-pty/ConPTY wrapper for agy (Antigravity CLI / Gemini CLI) that captures terminal-buffer responses as stdout for automation",
   "type": "module",
   "main": "src/agy-companion.mjs",
   "bin": {
@@ -41,9 +41,17 @@
     "cli",
     "wrapper",
     "pty",
+    "node-pty",
     "conpty",
+    "stdout-capture",
+    "terminal-buffer",
+    "subprocess",
+    "agy-cli",
+    "gemini-cli-wrapper",
     "claude-code",
+    "codex",
     "multi-agent",
+    "ci-cd",
     "llm"
   ],
   "author": "Lukas Geiger",
