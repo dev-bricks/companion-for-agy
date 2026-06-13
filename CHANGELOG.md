@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+- `--doctor` platform preflight for Windows, macOS and Linux. The new report checks agy path/executability, semver-based `--model` compatibility hints, `node-pty` loadability, native binary location and POSIX `spawn-helper` readiness, and can emit either text or JSON.
+
+### Changed
+- Non-Windows agy autodetection now also checks `/home/linuxbrew/.linuxbrew/bin/agy` and `/usr/bin/agy`.
+
 ### Documentation
 - Added start-here tables and explicit discovery/disambiguation context to the English and German READMEs.
 - Refreshed `llms.txt` search phrases and package keywords for agy/Gemini CLI stdout-capture queries.

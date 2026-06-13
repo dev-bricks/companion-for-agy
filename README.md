@@ -43,6 +43,7 @@ That means other agents such as Claude Code, Codex, or CI/CD scripts cannot prog
 >
 > - **agy v1.0.x** (Homebrew `antigravity-cli`) does not support `--model`; use `--no-model` or `AGY_COMPANION_NO_MODEL=1`.
 > - If color extraction returns an empty result, run with `--debug` and inspect `agy-debug.log`.
+> - Run `companion-for-agy --doctor` before the first macOS/Linux smoke to verify agy path, `node-pty`, native binary, and POSIX `spawn-helper` readiness.
 
 ## Installation
 
@@ -99,6 +100,7 @@ Formats match agy's own permission system (`settings.json`).
 | `--timeout <ms>` | Timeout in ms (default: `120000`) |
 | `--json` | Output as JSON object |
 | `--debug` | Save raw PTY output to `agy-debug.log` |
+| `--doctor` | Print a platform preflight for agy, node-pty and helper artifacts |
 | `--lang <code>` | CLI output language: `en`, `de`, `es`, `zh-Hans`, `ja`, `ru` |
 | `--` | Stop option parsing; use before prompts that start with `-` |
 
@@ -120,11 +122,15 @@ companion-for-agy --researcher "Latest info on Node.js 24"
 companion-for-agy --read-only --allow "command(git log)" "prompt"
 companion-for-agy --json --model gemini-3.5-pro "prompt"
 companion-for-agy --no-model "prompt"
+companion-for-agy --doctor
+companion-for-agy --doctor --json
 companion-for-agy --lang de --help
 companion-for-agy --no-tools -- "-dash-prefixed prompt"
 ```
 
 JSON output includes `response`, `model`, `requestedModel`, and `permissionMode`. `model` is detected from agy's banner when possible and falls back to `requestedModel`.
+
+For `--doctor --json`, the output instead contains a preflight report with `status`, `blockers`, `warnings`, agy version detection, `node-pty` load details and helper/binary paths.
 
 ## Internationalization Scope
 

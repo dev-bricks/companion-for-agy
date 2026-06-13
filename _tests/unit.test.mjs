@@ -1,5 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {
   stripAnsi, isNoiseLine, extractByResponseColor,
   sanitizeForPty, extractResponse, escapeRegex, stripPromptEcho,
@@ -9,6 +12,7 @@ import {
   DEFAULT_MODEL, findAgyPath, AGY_PATH, parseDurationToMs,
   DEFAULT_RESPONSE_RGB, parseResponseRgb, responseRgbToSgrParams,
   shouldResetIdleTimer, RESPONSE_MIN_PROGRESS_BYTES,
+  parseSemverishVersion, versionSupportsModelFlag, inspectNodePtyArtifacts,
 } from '../src/agy-companion.mjs';
 import { detectLocale, getMessage } from '../src/locales.mjs';
 
@@ -908,5 +912,45 @@ describe('shouldResetIdleTimer', () => {
 
   it('RESPONSE_MIN_PROGRESS_BYTES is 10', () => {
     assert.equal(RESPONSE_MIN_PROGRESS_BYTES, 10);
+  });
+});
+
+describe('doctor helpers', () => {
+  it('parses semverish agy versions from text', () => {
+    assert.equal(parseSemverishVersion('Antigravity CLI 1.0.6'), '1.0.6');
+    assert.equal(parseSemverishVersion('Gemini CLI v1.1.2-beta.1'), '1.1.2-beta.1');
+    assert.equal(parseSemverishVersion('no version here'), null);
+  });
+
+  it('maps agy version to model-flag support', () => {
+    assert.equal(versionSupportsModelFlag('1.0.9'), false);
+    assert.equal(versionSupportsModelFlag('1.1.0'), true);
+    assert.equal(versionSupportsModelFlag('2.0.0'), true);
+    assert.equal(versionSupportsModelFlag(null), null);
+  });
+
+  it('detects POSIX spawn-helper and executable bit from artifact tree', () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'agy-companion-artifacts-'));
+    try {
+      const packageRoot = path.join(tempRoot, 'node-pty');
+      const prebuildDir = path.join(packageRoot, 'prebuilds', 'darwin-arm64');
+      fs.mkdirSync(prebuildDir, { recursive: true });
+      const helperPath = path.join(prebuildDir, 'spawn-helper');
+      const nativePath = path.join(prebuildDir, 'pty.node');
+      fs.writeFileSync(helperPath, '#!/bin/sh\nexit 0\n', 'utf8');
+      fs.writeFileSync(nativePath, '', 'utf8');
+
+      if (process.platform !== 'win32') {
+        fs.chmodSync(helperPath, 0o755);
+      }
+
+      const report = inspectNodePtyArtifacts(packageRoot, 'darwin', 'arm64');
+      assert.equal(report.nativeBinaryPath, nativePath);
+      assert.equal(report.helperPath, helperPath);
+      assert.equal(report.helperExists, true);
+      assert.equal(report.helperExecutable, true);
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
   });
 });

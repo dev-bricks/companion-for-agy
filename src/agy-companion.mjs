@@ -51,6 +51,7 @@ export function shouldResetIdleTimer({ newLength, lastProgressLength, minProgres
 }
 
 const require = createRequire(import.meta.url);
+const PACKAGE_JSON_PATH = fileURLToPath(new URL('../package.json', import.meta.url));
 
 // ---------- Response Color ----------
 
@@ -97,7 +98,9 @@ export function findAgyPath() {
   } else {
     for (const p of [
       path.join(os.homedir(), '.local', 'bin', 'agy'),
+      '/home/linuxbrew/.linuxbrew/bin/agy',
       '/usr/local/bin/agy',
+      '/usr/bin/agy',
       '/opt/homebrew/bin/agy',
     ]) {
       if (fs.existsSync(p)) return p;
@@ -108,6 +111,325 @@ export function findAgyPath() {
 }
 
 export const AGY_PATH = findAgyPath();
+
+export function parseSemverishVersion(text) {
+  if (!text || typeof text !== 'string') return null;
+  const match = text.match(/(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)/);
+  return match ? match[0] : null;
+}
+
+export function versionSupportsModelFlag(version) {
+  if (!version || typeof version !== 'string') return null;
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)/);
+  if (!match) return null;
+  const major = Number.parseInt(match[1], 10);
+  const minor = Number.parseInt(match[2], 10);
+  if (Number.isNaN(major) || Number.isNaN(minor)) return null;
+  if (major > 1) return true;
+  if (major < 1) return false;
+  return minor >= 1;
+}
+
+export function isExecutablePath(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return false;
+  if (process.platform === 'win32') return true;
+  try {
+    fs.accessSync(filePath, fs.constants.X_OK);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+export function findNearestPackageRoot(startPath) {
+  if (!startPath) return null;
+  const initial = fs.existsSync(startPath) && fs.statSync(startPath).isDirectory()
+    ? startPath
+    : path.dirname(startPath);
+  let current = initial;
+  while (current && current !== path.dirname(current)) {
+    if (fs.existsSync(path.join(current, 'package.json'))) {
+      return current;
+    }
+    current = path.dirname(current);
+  }
+  return null;
+}
+
+export function getNodePtyFallbackCandidates() {
+  const geminiPtySuffix = path.join('@google', 'gemini-cli', 'node_modules', 'node-pty');
+  const candidates = [];
+
+  if (process.platform === 'win32' && process.env.APPDATA) {
+    candidates.push(path.join(process.env.APPDATA, 'npm', 'node_modules', geminiPtySuffix));
+  }
+  try {
+    const globalRoot = execSync('npm root -g', {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
+    if (globalRoot) {
+      candidates.push(path.join(globalRoot, geminiPtySuffix));
+    }
+  } catch (_) {
+    // npm not available
+  }
+
+  return candidates;
+}
+
+export function resolveNodePtyModule(nodePtyOverride = process.env.AGY_COMPANION_PTY_PATH) {
+  if (nodePtyOverride) {
+    try {
+      const resolvedPath = require.resolve(nodePtyOverride);
+      return {
+        ok: true,
+        pty: require(nodePtyOverride),
+        source: 'override',
+        resolvedPath,
+        packageRoot: findNearestPackageRoot(resolvedPath),
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        source: 'override',
+        resolvedPath: nodePtyOverride,
+        packageRoot: findNearestPackageRoot(nodePtyOverride),
+        error,
+      };
+    }
+  }
+
+  try {
+    const resolvedPath = require.resolve('node-pty');
+    return {
+      ok: true,
+      pty: require('node-pty'),
+      source: 'dependency',
+      resolvedPath,
+      packageRoot: path.dirname(require.resolve('node-pty/package.json')),
+    };
+  } catch (directError) {
+    for (const candidate of getNodePtyFallbackCandidates()) {
+      try {
+        return {
+          ok: true,
+          pty: require(candidate),
+          source: 'gemini-cli-bundled',
+          resolvedPath: candidate,
+          packageRoot: candidate,
+        };
+      } catch (_) {
+        // try next candidate
+      }
+    }
+    return {
+      ok: false,
+      source: 'dependency',
+      resolvedPath: null,
+      packageRoot: null,
+      error: directError,
+    };
+  }
+}
+
+export function inspectNodePtyArtifacts(packageRoot, platform = process.platform, arch = process.arch) {
+  if (!packageRoot) {
+    return {
+      packageRoot: null,
+      prebuildDir: null,
+      nativeBinaryPath: null,
+      helperPath: null,
+      helperExists: false,
+      helperExecutable: null,
+    };
+  }
+
+  const prebuildDir = path.join(packageRoot, 'prebuilds', `${platform}-${arch}`);
+  const nativeCandidates = platform === 'win32'
+    ? [
+        path.join(prebuildDir, 'conpty.node'),
+        path.join(prebuildDir, 'pty.node'),
+        path.join(packageRoot, 'build', 'Release', 'conpty.node'),
+        path.join(packageRoot, 'build', 'Release', 'pty.node'),
+      ]
+    : [
+        path.join(prebuildDir, 'pty.node'),
+        path.join(packageRoot, 'build', 'Release', 'pty.node'),
+      ];
+  const helperPath = platform === 'win32'
+    ? null
+    : [
+        path.join(prebuildDir, 'spawn-helper'),
+        path.join(packageRoot, 'build', 'Release', 'spawn-helper'),
+      ].find(candidate => fs.existsSync(candidate)) || path.join(prebuildDir, 'spawn-helper');
+
+  const nativeBinaryPath = nativeCandidates.find(candidate => fs.existsSync(candidate)) || null;
+  const helperExists = helperPath ? fs.existsSync(helperPath) : false;
+
+  return {
+    packageRoot,
+    prebuildDir,
+    nativeBinaryPath,
+    helperPath,
+    helperExists,
+    helperExecutable: helperExists ? isExecutablePath(helperPath) : null,
+  };
+}
+
+export function detectAgyVersion(agyPath) {
+  if (!agyPath || !fs.existsSync(agyPath)) {
+    return { raw: null, version: null, supportsModelFlag: null, error: null };
+  }
+
+  try {
+    const raw = execFileSync(agyPath, ['--version'], {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: 5000,
+    });
+    const version = parseSemverishVersion(raw);
+    return {
+      raw: raw.trim(),
+      version,
+      supportsModelFlag: versionSupportsModelFlag(version),
+      error: null,
+    };
+  } catch (error) {
+    const combined = `${error.stdout || ''}\n${error.stderr || ''}`.trim();
+    const version = parseSemverishVersion(combined);
+    return {
+      raw: combined || null,
+      version,
+      supportsModelFlag: versionSupportsModelFlag(version),
+      error: error.message,
+    };
+  }
+}
+
+export function getPackageVersion() {
+  try {
+    return JSON.parse(fs.readFileSync(PACKAGE_JSON_PATH, 'utf8')).version || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+export function collectDoctorReport() {
+  const resolvedAgyPath = AGY_PATH;
+  const nodePty = resolveNodePtyModule();
+  const nodePtyArtifacts = inspectNodePtyArtifacts(nodePty.packageRoot);
+  const agyExecutable = resolvedAgyPath ? isExecutablePath(resolvedAgyPath) : false;
+  const agyVersion = detectAgyVersion(resolvedAgyPath);
+  const configuredRgb = parseResponseRgb(process.env.AGY_COMPANION_RESPONSE_RGB) || DEFAULT_RESPONSE_RGB;
+  const blockers = [];
+  const warnings = [];
+
+  if (!resolvedAgyPath) {
+    blockers.push('agy binary not found');
+  } else if (!fs.existsSync(resolvedAgyPath)) {
+    blockers.push(`agy path does not exist: ${resolvedAgyPath}`);
+  } else if (!agyExecutable) {
+    blockers.push(`agy path is not executable: ${resolvedAgyPath}`);
+  }
+
+  if (!nodePty.ok) {
+    blockers.push('node-pty could not be loaded');
+  }
+
+  if (resolvedAgyPath && fs.existsSync(resolvedAgyPath) && agyExecutable && !agyVersion.version) {
+    warnings.push('agy version could not be detected; model-flag compatibility remains unknown');
+  } else if (agyVersion.supportsModelFlag === false) {
+    warnings.push('agy 1.0.x detected; prefer --no-model or AGY_COMPANION_NO_MODEL=1');
+  }
+
+  if (nodePty.ok && !nodePtyArtifacts.nativeBinaryPath) {
+    warnings.push('node-pty native binary could not be located under prebuild/build paths');
+  }
+
+  if (process.platform !== 'win32' && nodePty.ok) {
+    if (!nodePtyArtifacts.helperExists) {
+      warnings.push('node-pty spawn-helper not found in expected prebuild/build paths');
+    } else if (!nodePtyArtifacts.helperExecutable) {
+      blockers.push(`node-pty spawn-helper is not executable: ${nodePtyArtifacts.helperPath}`);
+    }
+  }
+
+  return {
+    tool: 'companion-for-agy',
+    toolVersion: getPackageVersion(),
+    platform: process.platform,
+    arch: process.arch,
+    nodeVersion: process.version,
+    agy: {
+      path: resolvedAgyPath,
+      exists: Boolean(resolvedAgyPath && fs.existsSync(resolvedAgyPath)),
+      executable: resolvedAgyPath ? agyExecutable : false,
+      version: agyVersion.version,
+      versionRaw: agyVersion.raw,
+      supportsModelFlag: agyVersion.supportsModelFlag,
+      error: agyVersion.error,
+    },
+    nodePty: {
+      loadable: nodePty.ok,
+      source: nodePty.source,
+      resolvedPath: nodePty.resolvedPath,
+      packageRoot: nodePty.packageRoot,
+      error: nodePty.error ? nodePty.error.message : null,
+      nativeBinaryPath: nodePtyArtifacts.nativeBinaryPath,
+      helperPath: nodePtyArtifacts.helperPath,
+      helperExists: nodePtyArtifacts.helperExists,
+      helperExecutable: nodePtyArtifacts.helperExecutable,
+    },
+    responseColor: {
+      rgb: configuredRgb,
+      sgrParams: responseRgbToSgrParams(configuredRgb),
+    },
+    blockers,
+    warnings,
+    status: blockers.length > 0 ? 'fail' : warnings.length > 0 ? 'warn' : 'ok',
+  };
+}
+
+export function renderDoctorReport(report) {
+  const lines = [
+    `companion-for-agy doctor ${report.toolVersion || '(unknown version)'}`,
+    `Platform: ${report.platform}-${report.arch} | Node ${report.nodeVersion}`,
+    `Status: ${report.status.toUpperCase()}`,
+    '',
+    `agy path: ${report.agy.path || '(not found)'}`,
+    `agy executable: ${report.agy.executable ? 'PASS' : 'FAIL'}`,
+    `agy version: ${report.agy.version || '(unknown)'}`,
+    `model flag support: ${report.agy.supportsModelFlag === null ? 'unknown' : report.agy.supportsModelFlag ? 'PASS' : 'WARN use --no-model'}`,
+    '',
+    `node-pty load: ${report.nodePty.loadable ? 'PASS' : 'FAIL'} (${report.nodePty.source})`,
+    `node-pty module: ${report.nodePty.resolvedPath || '(not resolved)'}`,
+    `node-pty binary: ${report.nodePty.nativeBinaryPath || '(not located)'}`,
+    `node-pty helper: ${report.nodePty.helperPath || '(n/a)'}`,
+  ];
+
+  if (report.platform !== 'win32') {
+    lines.push(`node-pty helper executable: ${report.nodePty.helperExecutable === null ? 'unknown' : report.nodePty.helperExecutable ? 'PASS' : 'FAIL'}`);
+  }
+
+  lines.push('', `response RGB: ${report.responseColor.rgb.join(',')}`);
+
+  if (report.blockers.length > 0) {
+    lines.push('', 'Blockers:');
+    for (const blocker of report.blockers) {
+      lines.push(`- ${blocker}`);
+    }
+  }
+
+  if (report.warnings.length > 0) {
+    lines.push('', 'Warnings:');
+    for (const warning of report.warnings) {
+      lines.push(`- ${warning}`);
+    }
+  }
+
+  return lines.join('\n') + '\n';
+}
 
 // ---------- Go-style Duration Parser ----------
 
@@ -499,6 +821,7 @@ if (isMainModule()) {
   let timeoutMs = DEFAULT_TIMEOUT_MS;
   let debug = false;
   let jsonOutput = false;
+  let doctorMode = false;
   let permissionMode = 'sandbox';
   const customAllow = [];
   const customDeny = [];
@@ -530,6 +853,8 @@ if (isMainModule()) {
       debug = true;
     } else if (arg === '--json') {
       jsonOutput = true;
+    } else if (arg === '--doctor') {
+      doctorMode = true;
     } else if (arg === '--sandbox') {
       permissionMode = 'sandbox';
     } else if (arg === '--skip-permissions' || arg === '--dangerously-skip-permissions') {
@@ -576,7 +901,7 @@ if (isMainModule()) {
   }
 
   const userPrompt = promptParts.join(' ').trim();
-  if (!userPrompt) {
+  if (!doctorMode && !userPrompt) {
     process.stderr.write(getMessage('errNoPrompt', lang));
     printUsage(lang);
     process.exit(1);
@@ -609,50 +934,28 @@ if (isMainModule()) {
   const effectivePrompt = promptPrefix + userPrompt;
   effectivePromptForFilter = effectivePrompt;
 
+  if (doctorMode) {
+    const report = collectDoctorReport();
+    if (jsonOutput) {
+      process.stdout.write(JSON.stringify(report) + '\n');
+    } else {
+      process.stdout.write(renderDoctorReport(report));
+    }
+    process.exit(report.blockers.length > 0 ? 2 : 0);
+  }
+
   // ---------- node-pty ----------
 
-  let pty;
-  const nodePtyOverride = process.env.AGY_COMPANION_PTY_PATH;
-
-  if (nodePtyOverride) {
-    try {
-      pty = require(nodePtyOverride);
-    } catch (err) {
-      process.stderr.write(getMessage('errPtyLoadFailed', lang, { path: nodePtyOverride, message: err.message }));
-      process.exit(1);
+  const nodePty = resolveNodePtyModule();
+  if (!nodePty.ok) {
+    if (process.env.AGY_COMPANION_PTY_PATH) {
+      process.stderr.write(getMessage('errPtyLoadFailed', lang, { path: process.env.AGY_COMPANION_PTY_PATH, message: nodePty.error.message }));
+    } else {
+      process.stderr.write(getMessage('errPtyInstall', lang));
     }
-  } else {
-    try {
-      pty = require('node-pty');
-    } catch (_) {
-      let loaded = false;
-      const geminiPtySuffix = path.join('@google', 'gemini-cli', 'node_modules', 'node-pty');
-      const candidates = [];
-
-      if (process.platform === 'win32' && process.env.APPDATA) {
-        candidates.push(path.join(process.env.APPDATA, 'npm', 'node_modules', geminiPtySuffix));
-      }
-      try {
-        const globalRoot = execSync('npm root -g', {
-          encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'],
-        }).trim();
-        candidates.push(path.join(globalRoot, geminiPtySuffix));
-      } catch (_) { /* npm not available */ }
-
-      for (const candidate of candidates) {
-        try {
-          pty = require(candidate);
-          loaded = true;
-          break;
-        } catch (_) { /* try next */ }
-      }
-
-      if (!loaded) {
-        process.stderr.write(getMessage('errPtyInstall', lang));
-        process.exit(1);
-      }
-    }
+    process.exit(1);
   }
+  const pty = nodePty.pty;
 
   // ---------- Resolve agy path ----------
 

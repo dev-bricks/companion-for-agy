@@ -13,7 +13,8 @@ const SCRIPT = path.resolve(__dirname, '..', 'src', 'agy-companion.mjs');
 const RC = '\\x1b[38;2;232;234;237m';
 const RESET = '\\x1b[0m';
 
-function makeFakeHarness(mode) {
+function makeFakeHarness(mode, options = {}) {
+  const { agyPath = null } = options;
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agy-companion-test-'));
   const fakeAgy = path.join(tempDir, process.platform === 'win32' ? 'agy.exe' : 'agy');
   const fakePty = path.join(tempDir, 'fake-pty.cjs');
@@ -82,7 +83,7 @@ exports.spawn = function spawn(_cmd, args) {
     eventLog,
     env: {
       ...process.env,
-      AGY_COMPANION_AGY_PATH: fakeAgy,
+      AGY_COMPANION_AGY_PATH: agyPath || fakeAgy,
       AGY_COMPANION_PTY_PATH: fakePty,
       AGY_COMPANION_FAKE_MODE: mode,
       AGY_COMPANION_FAKE_EVENT_LOG: eventLog,
@@ -225,6 +226,47 @@ describe('CLI regressions with fake PTY', () => {
       assert.equal(exitCode, 143);
       const events = fs.readFileSync(harness.eventLog, 'utf8');
       assert.match(events, /ctrlc/);
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it('prints doctor JSON without starting the PTY', async () => {
+    const harness = makeFakeHarness('ok', { agyPath: process.execPath });
+    try {
+      const { stdout } = await execFileAsync('node', [SCRIPT, '--doctor', '--json'], {
+        env: harness.env,
+        timeout: 20000,
+      });
+      const parsed = JSON.parse(stdout.trim());
+      assert.equal(parsed.tool, 'companion-for-agy');
+      assert.equal(typeof parsed.nodePty.loadable, 'boolean');
+      assert.equal(parsed.agy.path, process.execPath);
+      assert.equal(fs.readFileSync(harness.eventLog, 'utf8'), '');
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it('doctor exits with blockers when agy is missing', async () => {
+    const harness = makeFakeHarness('ok', {
+      agyPath: path.join(os.tmpdir(), 'agy-companion-missing-binary'),
+    });
+    try {
+      await assert.rejects(
+        execFileAsync('node', [SCRIPT, '--doctor', '--json'], {
+          env: harness.env,
+          timeout: 20000,
+        }),
+        err => {
+          assert.equal(err.code, 2);
+          const parsed = JSON.parse(err.stdout.trim());
+          assert.equal(parsed.status, 'fail');
+          assert.ok(parsed.blockers.some(blocker => blocker.includes('agy')));
+          assert.equal(fs.readFileSync(harness.eventLog, 'utf8'), '');
+          return true;
+        },
+      );
     } finally {
       harness.cleanup();
     }
