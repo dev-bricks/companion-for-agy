@@ -2,6 +2,11 @@
 
 ## [Unveröffentlicht]
 
+## [1.4.0] - 2026-06-14
+
+### Hinzugefügt
+- **`--add-dir <Verz.>` Workspace-Passthrough** (wiederholbar). agy schreibt Dateien nur in seinen eigenen Workspace; ohne dieses Flag werden Schreibversuche außerhalb des temporären Verzeichnisses still ignoriert oder fälschlicherweise als erfolgreich gemeldet. `--add-dir` registriert zusätzliche Verzeichnisse über agys `--add-dir`-Flag, sodass Schreibvorgänge dort tatsächlich ankommen. Zusammen mit `--skip-permissions` für vollen Schreibzugriff verwenden, oder mit einer passenden `--allow "write_file(...)"`-Regel im Sandbox-Modus.
+
 ## [1.3.3] - 2026-06-08
 
 ### Behoben

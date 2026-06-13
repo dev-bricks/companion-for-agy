@@ -272,6 +272,41 @@ describe('CLI regressions with fake PTY', () => {
     }
   });
 
+  it('passes --add-dir to agy args (single)', async () => {
+    const harness = makeFakeHarness('ok');
+    try {
+      const { stdout } = await execFileAsync('node', [SCRIPT, '--no-tools', '--timeout', '30000', '--add-dir', '/tmp/myout', 'OK_PROMPT'], {
+        env: harness.env,
+        timeout: 60000,
+      });
+      assert.equal(stdout.trim(), 'OK');
+      const events = fs.readFileSync(harness.eventLog, 'utf8');
+      assert.match(events, /"--add-dir"/);
+      assert.match(events, /\/tmp\/myout/);
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it('passes --add-dir to agy args (multiple)', async () => {
+    const harness = makeFakeHarness('ok');
+    try {
+      const { stdout } = await execFileAsync('node', [SCRIPT, '--no-tools', '--timeout', '30000', '--add-dir', '/tmp/dir1', '--add-dir', '/tmp/dir2', 'OK_PROMPT'], {
+        env: harness.env,
+        timeout: 60000,
+      });
+      assert.equal(stdout.trim(), 'OK');
+      const events = fs.readFileSync(harness.eventLog, 'utf8');
+      assert.match(events, /\/tmp\/dir1/);
+      assert.match(events, /\/tmp\/dir2/);
+      // Both --add-dir flags appear in args (two occurrences expected)
+      const addDirCount = (events.match(/"--add-dir"/g) || []).length;
+      assert.equal(addDirCount, 2);
+    } finally {
+      harness.cleanup();
+    }
+  });
+
   it('outputs localized help text via --lang', async () => {
     const { stderr } = await execFileAsync('node', [SCRIPT, '--help', '--lang', 'de']);
     assert.match(stderr, /Inoffizieller PTY-Wrapper/);

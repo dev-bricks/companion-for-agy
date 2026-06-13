@@ -90,10 +90,33 @@ companion-for-agy [Optionen] "Prompt"
 
 Die Formate entsprechen agys eigenem Berechtigungssystem (`settings.json`).
 
+### Workspace
+
+```bash
+--add-dir "/pfad/zum/verzeichnis"   # Verzeichnis zum agy-Workspace hinzufügen (wiederholbar)
+```
+
+agy schreibt Dateien nur in seinen eigenen Workspace. Ohne `--add-dir` werden Schreibversuche außerhalb des temporären Workspaces still ignoriert oder fälschlicherweise als erfolgreich gemeldet, obwohl keine Datei entstanden ist.
+
+Mit `--add-dir` wird ein zusätzliches Verzeichnis registriert, sodass agy dort tatsächlich Dateien anlegen oder ändern kann:
+
+```bash
+# Datei in /mein/ausgabe schreiben — Workspace-Registrierung und Schreibrecht nötig
+companion-for-agy --skip-permissions --add-dir "/mein/ausgabe" \
+  "Schreibe hello.txt nach /mein/ausgabe mit Inhalt: Hallo Welt"
+
+# Im Sandbox-Modus: Schreibrecht explizit vergeben
+companion-for-agy --allow "write_file(/mein/ausgabe/*)" --add-dir "/mein/ausgabe" \
+  "Schreibe hello.txt nach /mein/ausgabe"
+```
+
+> **Hinweis:** `--skip-permissions` (YOLO-Modus) steuert die **Tool-Freigabe**; `--add-dir` steuert den **Workspace-Geltungsbereich**. Beide sind nötig, wenn in ein Verzeichnis außerhalb des Standard-Temp-Workspaces geschrieben werden soll.
+
 ### Optionen
 
 | Flag | Beschreibung |
 |------|--------------|
+| `--add-dir <Verz.>` | Verzeichnis zum agy-Workspace hinzufügen (wiederholbar); erforderlich damit agy Dateien außerhalb des Temp-Verzeichnisses schreiben kann |
 | `--model <Modell>` | Gemini-Modell (Standard: `gemini-3.5-flash`) |
 | `--no-model` | `--model` nicht an agy übergeben; nützlich für agy v1.0.x |
 | `--timeout <ms>` | Timeout in ms (Standard: `120000`) |
@@ -120,6 +143,7 @@ companion-for-agy --researcher "Aktuelle Infos zu Node.js 24"
 companion-for-agy --read-only --allow "command(git log)" "Prompt"
 companion-for-agy --json --model gemini-3.5-pro "Prompt"
 companion-for-agy --no-model "Prompt"
+companion-for-agy --skip-permissions --add-dir "/mein/ausgabe" "Schreibe hello.txt nach /mein/ausgabe"
 companion-for-agy --lang de --help
 companion-for-agy --no-tools -- "-prompt mit Bindestrich"
 ```

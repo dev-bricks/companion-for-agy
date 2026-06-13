@@ -91,10 +91,33 @@ companion-for-agy [options] "prompt"
 
 Formats match agy's own permission system (`settings.json`).
 
+### Workspace
+
+```bash
+--add-dir "/path/to/dir"      # Add a directory to agy's workspace (repeatable)
+```
+
+agy only writes files inside its own workspace directory. Without `--add-dir`, any file-write attempt outside the temp workspace is silently ignored or reported as a success even though no file was created.
+
+Use `--add-dir` to register additional directories so agy can actually create or modify files there:
+
+```bash
+# Write a file into /my/output — requires both workspace registration and write permission
+companion-for-agy --skip-permissions --add-dir "/my/output" \
+  "Write hello.txt to /my/output with content: Hello World"
+
+# With sandbox mode: grant write permission explicitly
+companion-for-agy --allow "write_file(/my/output/*)" --add-dir "/my/output" \
+  "Write hello.txt to /my/output"
+```
+
+> **Note:** `--skip-permissions` (YOLO mode) controls **tool authorization**; `--add-dir` controls **workspace scope**. Both are needed when writing to a directory outside the default temp workspace.
+
 ### Options
 
 | Flag | Description |
 |------|-------------|
+| `--add-dir <dir>` | Add a directory to agy's workspace (repeatable); required for agy to write files outside its temp dir |
 | `--model <model>` | Gemini model (default: `gemini-3.5-flash`) |
 | `--no-model` | Do not pass `--model` to agy; useful for agy v1.0.x |
 | `--timeout <ms>` | Timeout in ms (default: `120000`) |
@@ -122,6 +145,7 @@ companion-for-agy --researcher "Latest info on Node.js 24"
 companion-for-agy --read-only --allow "command(git log)" "prompt"
 companion-for-agy --json --model gemini-3.5-pro "prompt"
 companion-for-agy --no-model "prompt"
+companion-for-agy --skip-permissions --add-dir "/my/output" "Write hello.txt to /my/output"
 companion-for-agy --doctor
 companion-for-agy --doctor --json
 companion-for-agy --lang de --help

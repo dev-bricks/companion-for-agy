@@ -825,6 +825,7 @@ if (isMainModule()) {
   let permissionMode = 'sandbox';
   const customAllow = [];
   const customDeny = [];
+  const addDirs = [];
   let userPromptForFilter = '';
   let effectivePromptForFilter = '';
   const promptParts = [];
@@ -879,6 +880,8 @@ if (isMainModule()) {
       customAllow.push(rawArgs[++i]);
     } else if (arg === '--deny' && rawArgs[i + 1]) {
       customDeny.push(rawArgs[++i]);
+    } else if (arg === '--add-dir' && rawArgs[i + 1]) {
+      addDirs.push(rawArgs[++i]);
     } else if (arg === '--lang' && rawArgs[i + 1]) {
       langOption = rawArgs[++i];
     } else if (arg.startsWith('--lang=')) {
@@ -972,7 +975,10 @@ if (isMainModule()) {
 
   // ---------- Start agy ----------
 
-  const agyArgs = includeModel ? ['--model', model, ...preset.agyFlags] : [...preset.agyFlags];
+  const addDirFlags = addDirs.flatMap(dir => ['--add-dir', dir]);
+  const agyArgs = includeModel
+    ? ['--model', model, ...preset.agyFlags, ...addDirFlags]
+    : [...preset.agyFlags, ...addDirFlags];
 
   process.stderr.write(
     getMessage('statusStarting', lang, { args: agyArgs.join(' '), mode: permissionMode })

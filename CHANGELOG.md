@@ -2,15 +2,10 @@
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-06-14
+
 ### Added
-- `--doctor` platform preflight for Windows, macOS and Linux. The new report checks agy path/executability, semver-based `--model` compatibility hints, `node-pty` loadability, native binary location and POSIX `spawn-helper` readiness, and can emit either text or JSON.
-
-### Changed
-- Non-Windows agy autodetection now also checks `/home/linuxbrew/.linuxbrew/bin/agy` and `/usr/bin/agy`.
-
-### Documentation
-- Added start-here tables and explicit discovery/disambiguation context to the English and German READMEs.
-- Refreshed `llms.txt` search phrases and package keywords for agy/Gemini CLI stdout-capture queries.
+- **`--add-dir <dir>` workspace passthrough** (repeatable). agy only writes files inside its own workspace; without this flag, file-write attempts outside the temp directory are silently ignored or falsely reported as successful. `--add-dir` registers additional directories with agy's `--add-dir` flag so that writes there actually land. Pair with `--skip-permissions` for full write access, or with a matching `--allow "write_file(...)"` rule in sandbox mode.
 
 ## [1.3.3] - 2026-06-08
 
