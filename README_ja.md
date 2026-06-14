@@ -149,6 +149,39 @@ companion-for-agy (Node.js)
 - agy のテキスト出力を必要とする CI/CD スクリプト
 - agy の TUI 応答を stdout として捕捉するローカル自動化
 
+## ベストプラクティス: 2 つの応答取得経路
+
+companion-for-agy には agy から結果を受け取る方法が 2 つあります。用途に応じて選択してください。
+
+### 経路 1 — stdout (短いメッセージ、タスクの委譲)
+
+デフォルトの経路です。companion-for-agy は PTY から agy の応答を取得し、自身の stdout に書き出します。**短い応答や ASCII テキスト**では確実に動作し、短い `-p` プロンプトでタスクを委譲してコンパクトな回答だけを受け取りたい場合に適しています。
+
+```bash
+companion-for-agy --no-tools "2 + 2 は？"
+```
+
+**制限 (Windows で確認):** 応答が長い場合や、非 ASCII 文字 (中国語・日本語・韓国語などの CJK 文字) を含む場合、stdout 経由の取得で出力が文字化けし、文字が置換文字 (U+FFFD) に置き換わることがあります。これは agy 自体ではなく、PTY/ANSI 抽出層の特性です。
+
+### 経路 2 — `--add-dir` によるファイル出力 (大きな応答、非 ASCII、CJK)
+
+agy に結果を直接ファイルへ書き込ませます。agy 自身がディスクへ書き込むため、データが PTY の色抽出を通りません。この経路は完全な CJK テキストを含む**あらゆる内容**で確実に動作します。
+
+**パターン:** 短い指示ファイルを用意し、短い `-p` プロンプトで agy にそれを参照させ、結果をディスクから読み取ります。
+
+```bash
+# agy 自身が結果を /my/output/result.json に書き込む — CJK を含むクリーンな UTF-8
+companion-for-agy --skip-permissions --add-dir "/my/output" \
+  "Read /my/output/task.txt and follow it exactly."
+# その後 /my/output/result.json を読む (またはタスクで指定されたパス)
+```
+
+> **目安:**
+> - **タスクを委譲し、短いプロンプトを渡す** → stdout で十分。
+> - **応答全体を確実に取得する必要がある** (長文、非 ASCII、CJK) → `--add-dir` を使い、agy にファイルを書かせる。
+
+**根拠:** タスクの送信 (インバウンド) は確実です。agy は CJK を含む指示も正しく受け取ります。`--add-dir` によるファイル出力もクリーンです (Windows で CJK 内容を確認済み)。stdout 経由の取得経路が、非 ASCII や大きな内容で信頼できない箇所です。
+
 ## ライセンス
 
 MIT

@@ -149,6 +149,39 @@ companion-for-agy (Node.js)
 - Scripts CI/CD que necesitan salida textual de agy
 - Automatización local donde la respuesta TUI de agy debe capturarse como stdout
 
+## Buenas prácticas: dos vías de retorno
+
+companion-for-agy ofrece dos formas de recibir resultados de agy. Elige según lo que necesites:
+
+### Vía 1 — stdout (mensajes cortos, delegación de tareas)
+
+La vía predeterminada: companion-for-agy captura la respuesta de agy desde el PTY y la escribe en su propio stdout. Funciona de forma fiable con **respuestas cortas y texto ASCII**, y es la opción adecuada cuando delegas una tarea con un prompt `-p` breve y solo esperas una respuesta compacta.
+
+```bash
+companion-for-agy --no-tools "¿Cuánto es 2 + 2?"
+```
+
+**Limitación (observada en Windows):** Cuando la respuesta es larga o contiene caracteres no ASCII (por ejemplo, caracteres CJK como chino, japonés o coreano), la vía de stdout puede corromper la salida, sustituyendo caracteres por el carácter de reemplazo (U+FFFD). Es una propiedad de la capa de extracción PTY/ANSI, no de agy en sí.
+
+### Vía 2 — salida a archivo mediante `--add-dir` (respuestas grandes, no ASCII, CJK)
+
+Deja que agy escriba su resultado directamente en un archivo. agy escribe en disco por sí mismo; los datos nunca pasan por la extracción de color del PTY. Esta vía es fiable para **cualquier contenido**, incluido texto CJK completo.
+
+**Patrón:** escribe un archivo de instrucciones breve, apunta agy hacia él con un prompt `-p` corto y lee el resultado desde el disco.
+
+```bash
+# agy escribe el resultado en /my/output/result.json por sí mismo — UTF-8 limpio, incluido CJK
+companion-for-agy --skip-permissions --add-dir "/my/output" \
+  "Read /my/output/task.txt and follow it exactly."
+# luego lee /my/output/result.json (o la ruta que indique la tarea)
+```
+
+> **Regla práctica:**
+> - **Delegar tareas, pasar prompts cortos** → stdout es suficiente.
+> - **Necesitas la respuesta completa de forma fiable** (texto largo, no ASCII, CJK) → usa `--add-dir` y deja que agy escriba el archivo.
+
+**Evidencia:** La entrega de tareas (entrante) es fiable: agy recibe las instrucciones correctamente, incluido contenido CJK. La salida a archivo mediante `--add-dir` también es limpia (probado en Windows con contenido CJK). La vía de retorno por stdout es el eslabón poco fiable para contenido no ASCII o voluminoso.
+
 ## Licencia
 
 MIT

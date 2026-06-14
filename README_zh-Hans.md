@@ -149,6 +149,39 @@ companion-for-agy (Node.js)
 - 需要 agy 文本输出的 CI/CD 脚本
 - 需要把 agy TUI 响应捕获为 stdout 的本地自动化
 
+## 最佳实践: 两条返回路径
+
+companion-for-agy 提供两种从 agy 获取结果的方式，请根据需求选择：
+
+### 路径 1 — stdout (短消息、任务委派)
+
+默认路径：companion-for-agy 从 PTY 捕获 agy 的响应，并写入自身的 stdout。它对**短响应和 ASCII 文本**工作可靠，适用于通过简短的 `-p` 提示词委派任务、只需获取紧凑回答的场景。
+
+```bash
+companion-for-agy --no-tools "2 + 2 等于几？"
+```
+
+**限制 (在 Windows 上观察到):** 当响应较长或包含非 ASCII 内容 (例如中文、日文、韩文等 CJK 字符) 时，stdout 返回路径可能损坏输出，将字符替换为替换字符 (U+FFFD)。这是 PTY/ANSI 提取层的特性，而非 agy 本身的问题。
+
+### 路径 2 — 通过 `--add-dir` 输出到文件 (大体量响应、非 ASCII、CJK)
+
+让 agy 直接把结果写入文件。agy 自己写入磁盘，数据不经过 PTY 颜色提取。该路径对**任意内容**都可靠，包括完整的 CJK 文本。
+
+**模式:** 写一个简短的指令文件，用简短的 `-p` 提示词让 agy 指向它，然后从磁盘读取结果。
+
+```bash
+# agy 自己把结果写入 /my/output/result.json — 干净的 UTF-8，包含 CJK
+companion-for-agy --skip-permissions --add-dir "/my/output" \
+  "Read /my/output/task.txt and follow it exactly."
+# 然后读取 /my/output/result.json (或任务中指定的路径)
+```
+
+> **经验法则:**
+> - **委派任务、传递简短提示词** → stdout 即可。
+> - **需要可靠地获取完整响应** (长文本、非 ASCII、CJK) → 使用 `--add-dir`，让 agy 写入文件。
+
+**依据:** 任务下发 (入站) 是可靠的——agy 能正确接收指令，包括 CJK 内容。通过 `--add-dir` 的文件输出同样干净 (已在 Windows 上用 CJK 内容验证)。stdout 返回路径才是非 ASCII 和大体量内容的薄弱环节。
+
 ## 许可证
 
 MIT
