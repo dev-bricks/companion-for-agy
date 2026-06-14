@@ -79,6 +79,20 @@ Recognition-pattern policy: keep English as baseline; add non-English patterns o
 - [x] README_ja.md — Japanese
 - [x] README_ru.md — Russian
 
+### Robust Response Return (stdout capture for long / non-ASCII / CJK responses)
+
+The stdout return path is currently unreliable for **long, non-ASCII, or CJK content**: characters can be garbled into replacement characters (U+FFFD), as documented in the "Best Practices: Two Return Paths" section of the README. The capture happens through ConPTY/ANSI color extraction, where multi-byte sequences and terminal-buffer reflow can corrupt non-ASCII text.
+
+**Current workaround:** let agy write its result to a file itself via `--add-dir` and read it from disk (lossless UTF-8, including CJK). This works but forces callers into a file-based contract instead of a clean stdout response.
+
+**Goal:** make the return path itself robust, so the file-output workaround is no longer mandatory for bulky or non-ASCII responses.
+
+**Ideas:**
+- Harden the ConPTY capture's encoding handling: treat the PTY stream as a byte stream and decode UTF-8 only after reassembly, so multi-byte sequences split across chunks are not corrupted.
+- Audit the ANSI/SGR extraction and terminal-buffer reflow handling for multi-byte/wide (CJK) characters and replacement-character insertion points.
+- Add a structured `--json` output channel that carries the response losslessly (e.g. agy writing to a known temp file behind the scenes, or an explicit length-delimited/base64 transport), decoupling the response payload from terminal rendering.
+- Regression tests with long and CJK (Chinese/Japanese/Korean) payloads asserting byte-exact round-trips, on Windows first, then macOS/Linux.
+
 ### Multi-Turn Mode
 Currently, each invocation spawns a fresh agy process (one question, one answer). A persistent mode that keeps the PTY alive across multiple prompts would reduce startup overhead for batch workloads.
 
