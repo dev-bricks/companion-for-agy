@@ -198,6 +198,39 @@ companion-for-agy (Node.js)
 - CI/CD-Skripte, die Textausgabe von agy benötigen
 - Lokale Automatisierung, bei der agys TUI-Antwort als stdout gebraucht wird
 
+## Best Practices: Zwei Rückgabewege
+
+companion-for-agy bietet zwei Wege, um Ergebnisse von agy zurückzubekommen. Die Wahl hängt vom Anwendungsfall ab:
+
+### Weg 1 — stdout (kurze Nachrichten, Aufgabenübergabe)
+
+Der Standardweg: companion-for-agy erfasst agys Antwort aus dem PTY und schreibt sie auf seinen eigenen stdout. Das funktioniert zuverlässig für **kurze Antworten und ASCII-Text** und ist die richtige Wahl, wenn eine kompakte Antwort auf einen kurzen `-p`-Prompt erwartet wird.
+
+```bash
+companion-for-agy --no-tools "Was ist 2 + 2?"
+```
+
+**Einschränkung (beobachtet unter Windows):** Bei langen Antworten oder nicht-ASCII-Inhalten (z. B. CJK-Zeichen wie Chinesisch, Japanisch, Koreanisch) kann der stdout-Rückgabeweg die Ausgabe verstümmeln — Zeichen werden durch Ersatzzeichen (U+FFFD) ersetzt (z. B. `从​方阵…` wird zu `从​​阵…`). Diese Einschränkung liegt in der PTY/ANSI-Extraktionsschicht, nicht in agy selbst.
+
+### Weg 2 — Dateiausgabe via `--add-dir` (umfangreiche Antworten, Nicht-ASCII, CJK)
+
+agy schreibt das Ergebnis direkt als Datei. Die Daten laufen dann nicht durch die PTY-Farbextraktion. Dieser Weg ist für **beliebige Inhalte** zuverlässig, einschließlich vollständiger CJK-Texte.
+
+**Muster:** Eine kurze Instruktionsdatei ablegen, agy per kurzem `-p`-Prompt darauf verweisen lassen und das Ergebnis von der Festplatte lesen.
+
+```bash
+# agy schreibt das Ergebnis selbst nach /mein/ausgabe/result.json — sauberes UTF-8, inkl. CJK
+companion-for-agy --skip-permissions --add-dir "/mein/ausgabe" \
+  "Lese /mein/ausgabe/aufgabe.txt und führe sie genau aus."
+# Danach /mein/ausgabe/result.json lesen (oder den in der Aufgabe genannten Pfad)
+```
+
+> **Faustregel:**
+> - **Aufgaben delegieren, kurze Prompts übergeben** → stdout ist ausreichend.
+> - **Vollständige Antwort zuverlässig benötigen** (langer Text, Nicht-ASCII, CJK) → `--add-dir` nutzen und agy die Datei selbst schreiben lassen.
+
+**Befund:** Die Aufgabenübermittlung an agy (Inbound) ist zuverlässig — agy empfängt Instruktionen korrekt, auch mit CJK-Inhalten. Die Dateiausgabe via `--add-dir` ist ebenfalls sauber (getestet unter Windows mit CJK-Inhalten). Der stdout-Rückgabeweg ist das unzuverlässige Glied bei Nicht-ASCII- und umfangreichen Inhalten.
+
 ## Auffindbarkeit
 
 Suche nach **`dev-bricks/companion-for-agy`**, **`companion-for-agy stdout capture`**, **`agy Gemini CLI PTY wrapper`** oder **`Antigravity CLI subprocess response capture`**, um dieses Projekt direkt zu finden.

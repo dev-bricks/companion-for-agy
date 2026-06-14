@@ -43,6 +43,21 @@ companion-for-agy [options] "prompt"
 - [ellmos-codecommander-mcp](https://github.com/ellmos-ai/ellmos-codecommander-mcp): Code analysis and AST processing.
 - [ellmos-controlcenter-mcp](https://github.com/ellmos-ai/ellmos-controlcenter-mcp): MCP stack control plane.
 
+## Best Practices: Two Return Paths
+
+companion-for-agy provides two return paths for agy responses. Choose based on your use case:
+
+**Path 1 — stdout:** Works reliably for short responses and ASCII text. Use when delegating tasks with a brief `-p` prompt and expecting a compact answer. Limitation (observed on Windows): long responses or non-ASCII content (CJK characters: Chinese, Japanese, Korean) can be garbled to replacement characters (U+FFFD) in the PTY/ANSI extraction layer.
+
+**Path 2 — file output via `--add-dir`:** Let agy write its result directly to a file. Data never passes through the PTY color extraction, so output is clean for any content including CJK. Pattern: write a short instruction file, point agy at it, read the result from disk.
+
+```bash
+companion-for-agy --skip-permissions --add-dir "/output/dir" \
+  "Read /output/dir/task.txt and follow it exactly."
+```
+
+Rule of thumb: **delegate tasks and short prompts** → stdout is fine. **Need the full response reliably** (long text, non-ASCII, CJK) → use `--add-dir` and let agy write the file. Inbound task delivery and file output are both reliable (tested on Windows, including CJK); the stdout return path is the unreliable leg for non-ASCII/bulky content.
+
 ## Audience
 
 - Developers integrating agy/Gemini CLI into multi-agent pipelines or CI/CD scripts
@@ -69,4 +84,4 @@ node-pty ConPTY Gemini CLI stdout capture
 
 companion-for-agy is not the official Gemini CLI Companion VS Code extension, not a chatbot companion app, and not related to Databricks Agent Bricks or Bricks Builder. It is the dev-bricks Node.js wrapper for making agy/Gemini CLI responses readable from subprocess stdout.
 
-## Last-checked: 2026-06-13
+## Last-checked: 2026-06-14

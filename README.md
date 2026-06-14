@@ -204,6 +204,39 @@ companion-for-agy (Node.js)
 - CI/CD scripts that need text output from agy
 - Local automation where agy's TUI response must be captured as stdout
 
+## Best Practices: Two Return Paths
+
+companion-for-agy gives you two ways to get results back from agy. Choose based on what you need:
+
+### Path 1 — stdout (short messages, task delegation)
+
+The default path: companion-for-agy captures agy's response from the PTY and writes it to its own stdout. This works reliably for **short responses and ASCII text**, and is the right choice when you delegate a task with a brief `-p` prompt and only need a compact answer back.
+
+```bash
+companion-for-agy --no-tools "What is 2 + 2?"
+```
+
+**Limitation (observed on Windows):** When the response is long or contains non-ASCII content (e.g. CJK characters such as Chinese, Japanese, Korean), the stdout relay can garble the output — replacing characters with replacement characters (U+FFFD, e.g. `从​方阵…` becomes `从​​阵…`). This is a property of the PTY/ANSI extraction layer, not of agy itself.
+
+### Path 2 — file output via `--add-dir` (bulky responses, non-ASCII, CJK)
+
+Let agy write its result directly to a file. agy writes to disk itself; the data never passes through the PTY color extraction. This path is reliable for **any content**, including full CJK text.
+
+**Pattern:** write a short instruction file, point agy at it with a brief `-p` prompt, and read the result from disk.
+
+```bash
+# agy writes the result to /my/output/result.json itself — clean UTF-8, including CJK
+companion-for-agy --skip-permissions --add-dir "/my/output" \
+  "Read /my/output/task.txt and follow it exactly."
+# then read /my/output/result.json (or whatever the task specifies)
+```
+
+> **Rule of thumb:**
+> - **Delegate tasks, pass short prompts** → stdout is fine.
+> - **Need the full response reliably** (long text, non-ASCII, CJK) → use `--add-dir` and let agy write the file.
+
+**Evidence:** Inbound task delivery is reliable (agy receives instructions correctly, including CJK). File output via `--add-dir` is also clean (tested on Windows with CJK content). The stdout return path is the unreliable leg for non-ASCII/bulky content.
+
 ## Discovery Context
 
 Search for **`dev-bricks/companion-for-agy`**, **`companion-for-agy stdout capture`**, **`agy Gemini CLI PTY wrapper`**, or **`Antigravity CLI subprocess response capture`** to find this project directly.

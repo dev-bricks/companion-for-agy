@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Documentation
+- Added **Best Practices: Two Return Paths** section to README.md, README_de.md, and llms.txt. Documents that the stdout return path can garble non-ASCII/CJK content (observed on Windows) and recommends the file-output pattern via `--add-dir` for bulky or non-ASCII responses. Inbound task delivery and file output via `--add-dir` are reliable (tested on Windows, including CJK); stdout capture is the unreliable leg. Translated locales (es, ja, ru, zh-Hans) are tracked as TODO.
+
 ## [1.4.0] - 2026-06-14
 
 ### Added

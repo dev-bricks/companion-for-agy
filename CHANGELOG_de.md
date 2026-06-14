@@ -2,6 +2,9 @@
 
 ## [Unveröffentlicht]
 
+### Dokumentation
+- Abschnitt **Best Practices: Zwei Rückgabewege** in README.md, README_de.md und llms.txt ergänzt. Dokumentiert, dass der stdout-Rückgabeweg bei Nicht-ASCII- und CJK-Inhalten verstümmelte Ausgaben erzeugen kann (beobachtet unter Windows) und empfiehlt das Dateiausgabe-Muster via `--add-dir` für umfangreiche oder Nicht-ASCII-Antworten. Aufgabenübermittlung (Inbound) und Dateiausgabe via `--add-dir` sind zuverlässig (getestet unter Windows, inkl. CJK); der stdout-Rückgabeweg ist das unzuverlässige Glied. Übersetzungen der übrigen Sprachen (es, ja, ru, zh-Hans) sind als TODO erfasst.
+
 ## [1.4.0] - 2026-06-14
 
 ### Hinzugefügt
