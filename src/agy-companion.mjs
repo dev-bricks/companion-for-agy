@@ -38,6 +38,8 @@ export const SHUTDOWN_CLEANUP_DELAY_MS = 1000;
 export const DEFAULT_RESPONSE_RGB = [232, 234, 237];
 // Minimum new bytes required to justify resetting the idle timer (guards against 1-byte trickle loops)
 export const RESPONSE_MIN_PROGRESS_BYTES = 10;
+// If STARTUP_DONE_PATTERNS never fire (e.g. different agy version or language), proceed anyway after this delay
+export const STARTUP_FALLBACK_MS = 30000;
 
 // Pure helper — extracted for testability
 export function shouldResetIdleTimer({ newLength, lastProgressLength, minProgressBytes, responseComplete, lastResponseComplete }) {
@@ -1012,6 +1014,7 @@ if (isMainModule()) {
   let questionSent = false;
   let responseStartMark = 0;
   let initIdleTimer = null;
+  let startupFallbackTimer = null;
   let responseIdleTimer = null;
   let finished = false;
   let ptyExited = false;
@@ -1027,6 +1030,19 @@ if (isMainModule()) {
       shutdown(2);
     }
   }, timeoutMs);
+
+  startupFallbackTimer = setTimeout(() => {
+    if (!startupComplete && !finished) {
+      startupComplete = true;
+      process.stderr.write(getMessage('statusStartupFallback', lang, { timeout: STARTUP_FALLBACK_MS }));
+      initIdleTimer = setTimeout(() => {
+        if (!initDone && !questionSent) {
+          initDone = true;
+          sendQuestion();
+        }
+      }, INIT_FALLBACK_MS);
+    }
+  }, STARTUP_FALLBACK_MS);
 
   function cleanupTemp() {
     try {
@@ -1073,6 +1089,7 @@ if (isMainModule()) {
     finished = true;
     shutdownCode = code;
     clearTimeout(globalTimeout);
+    clearTimeout(startupFallbackTimer);
     clearTimeout(initIdleTimer);
     clearTimeout(responseIdleTimer);
 
@@ -1158,6 +1175,7 @@ if (isMainModule()) {
       if (!startupComplete) {
         if (STARTUP_DONE_PATTERNS.some(p => p.test(recentStripped))) {
           startupComplete = true;
+          clearTimeout(startupFallbackTimer);
           process.stderr.write(getMessage('statusStartupComplete', lang));
           clearTimeout(initIdleTimer);
           initIdleTimer = setTimeout(() => {

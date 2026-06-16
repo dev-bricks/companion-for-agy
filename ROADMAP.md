@@ -65,7 +65,7 @@ Recognition-pattern policy: keep English as baseline; add non-English patterns o
 - [x] Test agy CLI help under non-English locales — observed English output for `en_US`, `de_DE`, `ja_JP`, `zh_CN` on Windows
 - [ ] Test full agy TUI under non-English locales — does agy localize dialogs beyond `--help`?
 - [ ] Add observed Spanish, Simplified Chinese, Japanese, and Russian recognition patterns only if agy emits localized TUI strings
-- [ ] Fallback strategy: if no known pattern matches within timeout, proceed anyway (graceful degradation)
+- [x] Fallback strategy: if no known pattern matches within timeout, proceed anyway (graceful degradation) — `STARTUP_FALLBACK_MS = 30000`, fires before global timeout, 6-locale status message, unit-tested (2026-06-16)
 
 **CLI Output:**
 - [x] Extract all user-facing strings (help text, error messages, status output) into a locale map

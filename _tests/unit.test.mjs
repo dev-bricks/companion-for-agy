@@ -12,6 +12,7 @@ import {
   DEFAULT_MODEL, findAgyPath, AGY_PATH, parseDurationToMs,
   DEFAULT_RESPONSE_RGB, parseResponseRgb, responseRgbToSgrParams,
   shouldResetIdleTimer, RESPONSE_MIN_PROGRESS_BYTES,
+  STARTUP_FALLBACK_MS,
   parseSemverishVersion, versionSupportsModelFlag, inspectNodePtyArtifacts,
 } from '../src/agy-companion.mjs';
 import { detectLocale, getMessage } from '../src/locales.mjs';
@@ -686,6 +687,31 @@ describe('cleanColorExtracted', () => {
 describe('DEFAULT_MODEL', () => {
   it('is gemini-3.5-flash', () => {
     assert.equal(DEFAULT_MODEL, 'gemini-3.5-flash');
+  });
+});
+
+// ---------- STARTUP_FALLBACK_MS ----------
+
+describe('STARTUP_FALLBACK_MS', () => {
+  it('is 30000ms', () => {
+    assert.equal(STARTUP_FALLBACK_MS, 30000);
+  });
+});
+
+// ---------- statusStartupFallback locale ----------
+
+describe('statusStartupFallback locale', () => {
+  it('exists in all supported locales', () => {
+    for (const lang of ['en', 'de', 'es', 'zh-Hans', 'ja', 'ru']) {
+      const msg = getMessage('statusStartupFallback', lang, { timeout: 30000 });
+      assert.ok(msg.length > 0, `statusStartupFallback missing for locale ${lang}`);
+      assert.ok(msg.includes('30000'), `statusStartupFallback does not interpolate timeout for locale ${lang}`);
+    }
+  });
+
+  it('en message mentions proceeding', () => {
+    const msg = getMessage('statusStartupFallback', 'en', { timeout: 30000 });
+    assert.ok(msg.toLowerCase().includes('proceed') || msg.toLowerCase().includes('continuing'));
   });
 });
 

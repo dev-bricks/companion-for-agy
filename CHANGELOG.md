@@ -4,6 +4,7 @@
 
 ### Added
 - Linux-specific PTY smoke test `_tests/linux-pty-smoke.test.mjs` plus `npm run test:linux-pty`. The smoke spawns `/bin/sh` through `node-pty`, verifies `spawn-helper` and `pty.node`, and checks that `RGB(232,234,237)` truecolor extraction works on the real Linux `forkpty` path without requiring agy authentication.
+- **Startup fallback (graceful degradation):** If `STARTUP_DONE_PATTERNS` never match within `STARTUP_FALLBACK_MS` (30 s), the tool no longer stalls until the global 120 s timeout and exits with error code 2. Instead, it logs a status message and proceeds to send the question anyway — same fallback path as the existing init-idle timer. The new constant `STARTUP_FALLBACK_MS = 30000` is exported. Status messages added to all 6 locales (`statusStartupFallback`). Covered by unit tests.
 
 ### Documentation
 - Added **Best Practices: Two Return Paths** section to README.md, README_de.md, and llms.txt. Documents that the stdout return path can garble non-ASCII/CJK content (observed on Windows) and recommends the file-output pattern via `--add-dir` for bulky or non-ASCII responses. Inbound task delivery and file output via `--add-dir` are reliable (tested on Windows, including CJK); stdout capture is the unreliable leg. Translated locales (es, ja, ru, zh-Hans) are tracked as TODO.
