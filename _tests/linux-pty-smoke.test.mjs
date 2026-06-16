@@ -9,8 +9,28 @@ import {
   responseRgbToSgrParams,
 } from '../src/agy-companion.mjs';
 
+// Skip-Bedingung vorab auswerten: Plattform und PTY-Artefakte prüfen.
+// Der Test wird übersprungen, wenn kein Linux vorliegt ODER wenn node-pty
+// auf diesem System nicht vollständig gebaut ist (spawn-helper fehlt im
+// Prebuild-Verzeichnis, z. B. bei "npm ci" ohne nativen Rebuild).
+function getSkipReason() {
+  if (process.platform !== 'linux') return 'Linux-only PTY smoke';
+  const nodePty = resolveNodePtyModule();
+  if (!nodePty.ok) return `node-pty nicht ladbar: ${nodePty.error?.message || 'unbekannter Fehler'}`;
+  const artifacts = inspectNodePtyArtifacts(nodePty.packageRoot, 'linux', process.arch);
+  if (!artifacts.helperExists) {
+    return `spawn-helper fehlt unter ${artifacts.prebuildDir || '(unbekanntes Prebuild-Verzeichnis)'} — nativer Rebuild erforderlich`;
+  }
+  if (!artifacts.helperExecutable) {
+    return `spawn-helper nicht ausführbar: ${artifacts.helperPath || '(unbekannter Pfad)'}`;
+  }
+  return undefined;
+}
+
+const skipReason = getSkipReason();
+
 describe('Smoke: Linux forkpty path', {
-  skip: process.platform !== 'linux' ? 'Linux-only PTY smoke' : undefined,
+  skip: skipReason,
   timeout: 20000,
 }, () => {
   it('spawns /bin/sh via node-pty and extracts the truecolor response', async () => {

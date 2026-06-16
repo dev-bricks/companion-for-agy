@@ -83,6 +83,11 @@ exports.spawn = function spawn(_cmd, args) {
     eventLog,
     env: {
       ...process.env,
+      // Locale-Fixierung: Regression-Tests prüfen Verhalten, nicht i18n.
+      // Explizites Englisch verhindert OS-abhängige Fehlermeldungen (z. B. de_DE).
+      LANG: 'en_US.UTF-8',
+      LC_ALL: 'en_US.UTF-8',
+      LC_MESSAGES: '',
       AGY_COMPANION_AGY_PATH: agyPath || fakeAgy,
       AGY_COMPANION_PTY_PATH: fakePty,
       AGY_COMPANION_FAKE_MODE: mode,

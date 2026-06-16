@@ -794,7 +794,7 @@ describe('detectLocale', () => {
     assert.equal(detectLocale('zh-hans'), 'zh-Hans');
     assert.equal(detectLocale('ja'), 'ja');
     assert.equal(detectLocale('ru'), 'ru');
-    assert.equal(detectLocale('unknown'), 'en');
+    assert.equal(detectLocale('unknown', {}), 'en');
   });
 
   it('detects locale from environment variables', () => {
