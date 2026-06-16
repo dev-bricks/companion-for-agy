@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- Linux-specific PTY smoke test `_tests/linux-pty-smoke.test.mjs` plus `npm run test:linux-pty`. The smoke spawns `/bin/sh` through `node-pty`, verifies `spawn-helper` and `pty.node`, and checks that `RGB(232,234,237)` truecolor extraction works on the real Linux `forkpty` path without requiring agy authentication.
+
 ### Documentation
 - Added **Best Practices: Two Return Paths** section to README.md, README_de.md, and llms.txt. Documents that the stdout return path can garble non-ASCII/CJK content (observed on Windows) and recommends the file-output pattern via `--add-dir` for bulky or non-ASCII responses. Inbound task delivery and file output via `--add-dir` are reliable (tested on Windows, including CJK); stdout capture is the unreliable leg. Translated locales (es, ja, ru, zh-Hans) are tracked as TODO.
 

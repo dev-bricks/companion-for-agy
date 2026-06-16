@@ -6,7 +6,7 @@
 |----------|--------|-------|
 | **Windows** | Verified | ConPTY, agy >= 1.1, RGB(232,234,237) confirmed |
 | **macOS** | Untested | node-pty (forkpty) expected to work, color values unconfirmed |
-| **Linux** | Untested | node-pty (forkpty) expected to work, color values unconfirmed |
+| **Linux** | PTY smoke in CI | `node-pty`/`forkpty`, `spawn-helper`, native binary and `RGB(232,234,237)` ANSI extraction are covered by `_tests/linux-pty-smoke.test.mjs`; a real agy live smoke is still open |
 
 ## Planned
 
@@ -16,11 +16,13 @@ The tool is currently **Windows-only verified**. macOS and Linux are expected to
 
 **TODOs:**
 - [ ] Verify ANSI response color on macOS (is it still `RGB(232,234,237)` or does agy use a different palette?)
-- [ ] Verify ANSI response color on Linux
+- [x] Add a Linux PTY smoke that exercises `node-pty`/`forkpty`, `spawn-helper`, native binary discovery and truecolor extraction without requiring agy authentication
+- [ ] Verify ANSI response color on Linux during a real agy session
 - [x] Handle agy v1.0.x (Homebrew `antigravity-cli`) which lacks `--model` flag — `--model` can be skipped via `--no-model` or `AGY_COMPANION_NO_MODEL`
 - [ ] Test node-pty spawn-helper permissions after `npm install` on macOS (prebuilt binaries need +x)
 - [ ] Test trust dialog auto-confirmation flow on macOS/Linux
-- [ ] Add platform-specific CI smoke tests (requires agy authentication in CI — may need to remain manual)
+- [x] Add a Linux-specific CI smoke for the PTY path without agy authentication
+- [ ] Add an agy-authenticated Linux live smoke when a safe CI credential path exists, otherwise keep that step manual
 
 **Diagnostics available now:**
 - `--debug` flag saves raw PTY output to `agy-debug.log` — inspect for actual ANSI color codes on any platform

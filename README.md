@@ -39,11 +39,12 @@ That means other agents such as Claude Code, Codex, or CI/CD scripts cannot prog
 
 `companion-for-agy` starts agy inside a virtual terminal via `node-pty` (ConPTY on Windows, forkpty on macOS/Linux) and extracts the response from the ANSI color stream. agy's response text currently uses `RGB(232,234,237)`, so the wrapper tracks ANSI color state and collects only text in that color.
 
-> **Platform note:** ANSI color extraction (`RGB(232,234,237)`) and the `--model` flag have been verified on **Windows** with agy >= 1.1. macOS and Linux are expected to work through `node-pty`, but the exact response color still needs independent verification there.
+> **Platform note:** ANSI color extraction (`RGB(232,234,237)`) and the `--model` flag have been verified on **Windows** with agy >= 1.1. On **Linux**, the repository now also has a real `node-pty`/`forkpty` smoke (`npm run test:linux-pty`) that checks `spawn-helper`, the native `pty.node`, and truecolor extraction through `/bin/sh`; the remaining open Linux step is a live agy session. macOS still needs the first independent live verification.
 >
 > - **agy v1.0.x** (Homebrew `antigravity-cli`) does not support `--model`; use `--no-model` or `AGY_COMPANION_NO_MODEL=1`.
 > - If color extraction returns an empty result, run with `--debug` and inspect `agy-debug.log`.
 > - Run `companion-for-agy --doctor` before the first macOS/Linux smoke to verify agy path, `node-pty`, native binary, and POSIX `spawn-helper` readiness.
+> - On Linux, run `npm run test:linux-pty` before the first live agy test. It verifies the PTY pipeline without requiring agy authentication.
 
 ## Installation
 
