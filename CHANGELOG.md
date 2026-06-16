@@ -2,7 +2,10 @@
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-06-16
+
 ### Added
+- **Update notifier:** shows an "update available" hint when a newer published version exists. Runs **only in an interactive terminal** (`process.stdout.isTTY`) — never in subprocess, pipe, CI or MCP usage, so machine integrations are unaffected. The check runs detached in the background. Implemented with `update-notifier`.
 - Linux-specific PTY smoke test `_tests/linux-pty-smoke.test.mjs` plus `npm run test:linux-pty`. The smoke spawns `/bin/sh` through `node-pty`, verifies `spawn-helper` and `pty.node`, and checks that `RGB(232,234,237)` truecolor extraction works on the real Linux `forkpty` path without requiring agy authentication.
 - **Startup fallback (graceful degradation):** If `STARTUP_DONE_PATTERNS` never match within `STARTUP_FALLBACK_MS` (30 s), the tool no longer stalls until the global 120 s timeout and exits with error code 2. Instead, it logs a status message and proceeds to send the question anyway — same fallback path as the existing init-idle timer. The new constant `STARTUP_FALLBACK_MS = 30000` is exported. Status messages added to all 6 locales (`statusStartupFallback`). Covered by unit tests.
 

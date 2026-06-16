@@ -1,6 +1,6 @@
 {
   "name": "companion-for-agy",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Unofficial node-pty/ConPTY wrapper for agy (Antigravity CLI / Gemini CLI) that captures terminal-buffer responses as stdout for automation",
   "type": "module",
   "main": "src/agy-companion.mjs",
@@ -71,6 +71,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "node-pty": "^1.0.0"
+    "node-pty": "^1.0.0",
+    "update-notifier": "^7.3.1"
   }
 }

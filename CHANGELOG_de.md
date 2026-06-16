@@ -2,6 +2,11 @@
 
 ## [Unveröffentlicht]
 
+## [1.4.1] - 2026-06-16
+
+### Hinzugefügt
+- **Update-Hinweis:** zeigt einen „Update verfügbar"-Hinweis, wenn eine neuere veröffentlichte Version existiert. Läuft **nur im interaktiven Terminal** (`process.stdout.isTTY`) — niemals im Subprozess-, Pipe-, CI- oder MCP-Betrieb, maschinelle Integrationen bleiben unberührt. Der Check läuft abgekoppelt im Hintergrund. Umgesetzt mit `update-notifier`.
+
 ### Dokumentation
 - Abschnitt **Best Practices: Zwei Rückgabewege** in README.md, README_de.md und llms.txt ergänzt. Dokumentiert, dass der stdout-Rückgabeweg bei Nicht-ASCII- und CJK-Inhalten verstümmelte Ausgaben erzeugen kann (beobachtet unter Windows) und empfiehlt das Dateiausgabe-Muster via `--add-dir` für umfangreiche oder Nicht-ASCII-Antworten. Aufgabenübermittlung (Inbound) und Dateiausgabe via `--add-dir` sind zuverlässig (getestet unter Windows, inkl. CJK); der stdout-Rückgabeweg ist das unzuverlässige Glied. Übersetzungen der übrigen Sprachen (es, ja, ru, zh-Hans) sind als TODO erfasst.
 

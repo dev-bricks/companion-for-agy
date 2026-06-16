@@ -25,6 +25,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import process from 'node:process';
 import { detectLocale, getMessage } from './locales.mjs';
+import updateNotifier from 'update-notifier';
 
 // ---------- Defaults ----------
 
@@ -811,6 +812,14 @@ function isMainModule() {
 }
 
 if (isMainModule()) {
+
+  // Update-Hinweis: nur im interaktiven Terminal melden, niemals im Subprozess-/Pipe-Betrieb
+  // (schuetzt jede maschinelle Nutzung; der Check laeuft abgekoppelt im Hintergrund).
+  try {
+    if (process.stdout.isTTY) {
+      updateNotifier({ pkg: require('../package.json') }).notify();
+    }
+  } catch (_) { /* Update-Check darf den Start nie blockieren */ }
 
   function printUsage(lang) {
     process.stderr.write(getMessage('usage', lang));
