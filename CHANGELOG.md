@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- `--live-smoke` authenticated agy marker smoke plus `npm run live-smoke` / `npm run live-smoke:json` (scripts use `--no-model` for agy 1.0.x compatibility). The mode defaults to `no-tools`, asks agy to return exactly `AGY_LIVE_SMOKE_OK`, emits a text or JSON report, and exits with code `5` on marker mismatch. This gives macOS/Linux transfer work a repeatable live gate after `--doctor` and `--pty-smoke`.
 - Packaged `--pty-smoke` platform smoke plus `npm run pty-smoke` / `npm run pty-smoke:json`. The smoke verifies the installed `node-pty` truecolor path without agy authentication, reports blockers/warnings as text or JSON, and gives macOS/Linux a repeatable pre-live-smoke gate before real `agy --debug` sessions.
 
 ## [1.4.1] - 2026-06-16

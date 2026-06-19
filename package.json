@@ -28,6 +28,8 @@
     "doctor:json": "node src/agy-companion.mjs --doctor --json",
     "pty-smoke": "node src/agy-companion.mjs --pty-smoke",
     "pty-smoke:json": "node src/agy-companion.mjs --pty-smoke --json",
+    "live-smoke": "node src/agy-companion.mjs --live-smoke --no-model --debug",
+    "live-smoke:json": "node src/agy-companion.mjs --live-smoke --no-model --debug --json",
     "test": "node --test _tests/unit.test.mjs _tests/fixture.test.mjs _tests/cli-regression.test.mjs _tests/linux-pty-smoke.test.mjs",
     "test:unit": "node --test _tests/unit.test.mjs",
     "test:fixture": "node --test _tests/fixture.test.mjs",

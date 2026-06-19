@@ -38,6 +38,8 @@ export const SHUTDOWN_FORCE_KILL_MS = 2000;
 export const SHUTDOWN_CLEANUP_DELAY_MS = 1000;
 export const DEFAULT_RESPONSE_RGB = [232, 234, 237];
 export const PTY_SMOKE_TEXT = 'PTY_SMOKE_OK';
+export const LIVE_SMOKE_TEXT = 'AGY_LIVE_SMOKE_OK';
+export const LIVE_SMOKE_EXIT_CODE = 5;
 // Minimum new bytes required to justify resetting the idle timer (guards against 1-byte trickle loops)
 export const RESPONSE_MIN_PROGRESS_BYTES = 10;
 // If STARTUP_DONE_PATTERNS never fire (e.g. different agy version or language), proceed anyway after this delay
@@ -622,6 +624,85 @@ export function renderPtySmokeReport(report) {
   return lines.join('\n') + '\n';
 }
 
+export function buildLiveSmokePrompt(expectedText = LIVE_SMOKE_TEXT) {
+  return `Reply with exactly ${expectedText} and no other text.`;
+}
+
+export function liveSmokeMatches(text, expectedText = LIVE_SMOKE_TEXT) {
+  return typeof text === 'string' && text.trim() === expectedText;
+}
+
+export function buildLiveSmokeReport({
+  text,
+  model,
+  requestedModel,
+  permissionMode,
+  debug,
+  prompt,
+} = {}) {
+  const matched = liveSmokeMatches(text);
+  const blockers = matched ? [] : [`live smoke response did not match ${LIVE_SMOKE_TEXT}`];
+  const rgb = parseResponseRgb(process.env.AGY_COMPANION_RESPONSE_RGB) || DEFAULT_RESPONSE_RGB;
+
+  return {
+    tool: 'companion-for-agy',
+    toolVersion: getPackageVersion(),
+    platform: process.platform,
+    arch: process.arch,
+    nodeVersion: process.version,
+    model,
+    requestedModel,
+    permissionMode,
+    responseColor: {
+      rgb,
+      sgrParams: responseRgbToSgrParams(rgb),
+    },
+    liveSmoke: {
+      expectedText: LIVE_SMOKE_TEXT,
+      prompt,
+      response: text,
+      matched,
+      debugEnabled: Boolean(debug),
+      debugLog: debug ? path.resolve('agy-debug.log') : null,
+    },
+    blockers,
+    warnings: [],
+    status: matched ? 'ok' : 'fail',
+  };
+}
+
+export function renderLiveSmokeReport(report) {
+  const lines = [
+    `companion-for-agy live smoke ${report.toolVersion || '(unknown version)'}`,
+    `Platform: ${report.platform}-${report.arch} | Node ${report.nodeVersion}`,
+    `Status: ${report.status.toUpperCase()}`,
+    '',
+    `permission mode: ${report.permissionMode}`,
+    `model: ${report.model || '(unknown)'}`,
+    `requested model: ${report.requestedModel || '(none)'}`,
+    `response RGB: ${report.responseColor.rgb.join(',')}`,
+    `expected text: ${report.liveSmoke.expectedText}`,
+    `response text: ${report.liveSmoke.response || '(none)'}`,
+    `debug log: ${report.liveSmoke.debugLog || '(disabled)'}`,
+  ];
+
+  if (report.blockers.length > 0) {
+    lines.push('', 'Blockers:');
+    for (const blocker of report.blockers) {
+      lines.push(`- ${blocker}`);
+    }
+  }
+
+  if (report.warnings.length > 0) {
+    lines.push('', 'Warnings:');
+    for (const warning of report.warnings) {
+      lines.push(`- ${warning}`);
+    }
+  }
+
+  return lines.join('\n') + '\n';
+}
+
 // ---------- Go-style Duration Parser ----------
 
 export function parseDurationToMs(str) {
@@ -1022,7 +1103,9 @@ if (isMainModule()) {
   let jsonOutput = false;
   let doctorMode = false;
   let ptySmokeMode = false;
+  let liveSmokeMode = false;
   let permissionMode = 'sandbox';
+  let permissionModeExplicit = false;
   const customAllow = [];
   const customDeny = [];
   const addDirs = [];
@@ -1058,16 +1141,23 @@ if (isMainModule()) {
       doctorMode = true;
     } else if (arg === '--pty-smoke') {
       ptySmokeMode = true;
+    } else if (arg === '--live-smoke') {
+      liveSmokeMode = true;
     } else if (arg === '--sandbox') {
       permissionMode = 'sandbox';
+      permissionModeExplicit = true;
     } else if (arg === '--skip-permissions' || arg === '--dangerously-skip-permissions') {
       permissionMode = 'skip-permissions';
+      permissionModeExplicit = true;
     } else if (arg === '--no-tools') {
       permissionMode = 'no-tools';
+      permissionModeExplicit = true;
     } else if (arg === '--researcher') {
       permissionMode = 'researcher';
+      permissionModeExplicit = true;
     } else if (arg === '--read-only') {
       permissionMode = 'read-only';
+      permissionModeExplicit = true;
     } else if (arg === '--print-timeout' && rawArgs[i + 1]) {
       const ms = parseDurationToMs(rawArgs[++i]);
       if (ms !== null) timeoutMs = ms;
@@ -1105,8 +1195,16 @@ if (isMainModule()) {
     process.exit(0);
   }
 
-  const userPrompt = promptParts.join(' ').trim();
-  if (!doctorMode && !ptySmokeMode && !userPrompt) {
+  let userPrompt = promptParts.join(' ').trim();
+  if (liveSmokeMode) {
+    if (!permissionModeExplicit) {
+      permissionMode = 'no-tools';
+    }
+    if (!userPrompt) {
+      userPrompt = buildLiveSmokePrompt();
+    }
+  }
+  if (!doctorMode && !ptySmokeMode && !liveSmokeMode && !userPrompt) {
     process.stderr.write(getMessage('errNoPrompt', lang));
     printUsage(lang);
     process.exit(1);
@@ -1326,8 +1424,7 @@ if (isMainModule()) {
     const response = extractResponse(stripped, responsePart, userPromptForFilter, effectivePromptForFilter);
 
     if (response) {
-      outputResult(response);
-      shutdown(0);
+      shutdown(outputResult(response));
     } else {
       process.stderr.write(getMessage('errNoResponse', lang));
       shutdown(NO_RESPONSE_EXIT_CODE);
@@ -1335,12 +1432,30 @@ if (isMainModule()) {
   }
 
   function outputResult(text) {
+    if (liveSmokeMode) {
+      const report = buildLiveSmokeReport({
+        text,
+        model: detectedModel || model,
+        requestedModel: model,
+        permissionMode,
+        debug,
+        prompt: userPromptForFilter,
+      });
+      if (jsonOutput) {
+        process.stdout.write(JSON.stringify(report) + '\n');
+      } else {
+        process.stdout.write(renderLiveSmokeReport(report));
+      }
+      return report.blockers.length > 0 ? LIVE_SMOKE_EXIT_CODE : 0;
+    }
+
     if (jsonOutput) {
       const result = { response: text, model: detectedModel || model, requestedModel: model, permissionMode };
       process.stdout.write(JSON.stringify(result) + '\n');
     } else {
       process.stdout.write(text + '\n');
     }
+    return 0;
   }
 
   function sendQuestion() {

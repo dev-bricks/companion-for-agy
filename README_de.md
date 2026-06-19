@@ -44,6 +44,7 @@ Dadurch können andere Agenten wie Claude Code, Codex oder CI/CD-Skripte agys An
 > - **agy v1.0.x** (Homebrew `antigravity-cli`) unterstützt `--model` nicht; nutze `--no-model` oder `AGY_COMPANION_NO_MODEL=1`.
 > - Falls die Farbextraktion leer bleibt, mit `--debug` starten und `agy-debug.log` prüfen.
 > - Vor einem echten macOS-/Linux-Live-Smoke zuerst `companion-for-agy --doctor` und danach `companion-for-agy --pty-smoke` ausführen. `--pty-smoke` prüft den paketierten `node-pty`-Truecolor-Pfad ohne agy-Authentifizierung.
+> - Für den ersten authentifizierten macOS-/Linux-Live-Smoke `companion-for-agy --live-smoke --no-model --debug --json` ausführen. Der Modus fragt agy nach dem Marker `AGY_LIVE_SMOKE_OK`, prüft die exakt gecapturete Antwort und schreibt rohe ANSI-Evidenz nach `agy-debug.log`.
 
 ## Installation
 
@@ -125,6 +126,7 @@ companion-for-agy --allow "write_file(/mein/ausgabe/*)" --add-dir "/mein/ausgabe
 | `--debug` | Raw-PTY-Ausgabe in `agy-debug.log` speichern |
 | `--doctor` | Plattform-Preflight für agy, node-pty und Helper-Artefakte ausgeben |
 | `--pty-smoke` | Auth-freien node-pty-Truecolor-Smoke für Plattformvalidierung ausführen |
+| `--live-smoke` | Echten agy-Marker-Smoke ausführen; nutzt ohne expliziten Modus automatisch `no-tools` |
 | `--lang <Code>` | CLI-Sprache: `en`, `de`, `es`, `zh-Hans`, `ja`, `ru` |
 | `--` | Optionsauswertung stoppen; vor Prompts nutzen, die mit `-` beginnen |
 
@@ -149,13 +151,14 @@ companion-for-agy --no-model "Prompt"
 companion-for-agy --skip-permissions --add-dir "/mein/ausgabe" "Schreibe hello.txt nach /mein/ausgabe"
 companion-for-agy --doctor --json
 companion-for-agy --pty-smoke --json
+companion-for-agy --live-smoke --no-model --debug --json
 companion-for-agy --lang de --help
 companion-for-agy --no-tools -- "-prompt mit Bindestrich"
 ```
 
 JSON-Ausgabe enthält `response`, `model`, `requestedModel` und `permissionMode`. `model` wird nach Möglichkeit aus agys Banner erkannt und fällt sonst auf `requestedModel` zurück.
 
-Für `--doctor --json` enthält die Ausgabe stattdessen einen Preflight-Bericht mit `status`, `blockers`, `warnings`, agy-Versionserkennung, `node-pty`-Ladedetails und Helper-/Binary-Pfaden. Für `--pty-smoke --json` enthält sie einen PTY-Smoke-Bericht mit verwendetem Kommando, erwarteter/extrahierter Truecolor-Antwort, Rohbytezahl sowie Blockern/Warnungen.
+Für `--doctor --json` enthält die Ausgabe stattdessen einen Preflight-Bericht mit `status`, `blockers`, `warnings`, agy-Versionserkennung, `node-pty`-Ladedetails und Helper-/Binary-Pfaden. Für `--pty-smoke --json` enthält sie einen PTY-Smoke-Bericht mit verwendetem Kommando, erwarteter/extrahierter Truecolor-Antwort, Rohbytezahl sowie Blockern/Warnungen. Für `--live-smoke --no-model --debug --json` enthält sie einen authentifizierten agy-Live-Smoke-Bericht mit `status`, Marker-Prüfung, Modellmetadaten, Berechtigungsmodus, Antwort-RGB und Debug-Log-Pfad. Ein Marker-Mismatch beendet den Prozess mit Exit-Code `5`.
 
 ## Internationalisierung
 

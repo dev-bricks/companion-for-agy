@@ -17,6 +17,7 @@ The tool is currently **Windows-only verified**. macOS and Linux are expected to
 **TODOs:**
 - [ ] Verify ANSI response color on macOS (is it still `RGB(232,234,237)` or does agy use a different palette?)
 - [x] Add a Linux PTY smoke that exercises `node-pty`/`forkpty`, `spawn-helper`, native binary discovery and truecolor extraction without requiring agy authentication
+- [x] Add an authenticated live-smoke mode (`--live-smoke`) that asks agy for `AGY_LIVE_SMOKE_OK`, emits text/JSON reports, and exits nonzero on marker mismatch
 - [ ] Verify ANSI response color on Linux during a real agy session
 - [x] Handle agy v1.0.x (Homebrew `antigravity-cli`) which lacks `--model` flag — `--model` can be skipped via `--no-model` or `AGY_COMPANION_NO_MODEL`
 - [ ] Test node-pty spawn-helper permissions after `npm install` on macOS (prebuilt binaries need +x)
@@ -27,6 +28,7 @@ The tool is currently **Windows-only verified**. macOS and Linux are expected to
 **Diagnostics available now:**
 - `--debug` flag saves raw PTY output to `agy-debug.log` — inspect for actual ANSI color codes on any platform
 - `AGY_COMPANION_RESPONSE_RGB` environment variable override for platform/theme-specific response colors
+- `--live-smoke --no-model --debug --json` is the repeatable authenticated gate after `--doctor` and `--pty-smoke` on macOS/Linux
 
 ### Color Fallback / Auto-Probe
 The current ANSI color extraction relies on `RGB(232,234,237)` as the response color. This has been verified on Windows (ConPTY). If agy changes its color scheme or uses different values on macOS/Linux, extraction silently fails.

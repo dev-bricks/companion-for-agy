@@ -79,6 +79,8 @@ exports.spawn = function spawn(_cmd, args) {
           dataCb('> ' + prompt + '\\n');
         } else if (mode === 'empty') {
           dataCb('> ' + prompt + '\\n42 tokens\\n>\\n');
+        } else if (mode === 'live-smoke') {
+          dataCb('> ' + prompt + '\\n' + RC + 'AGY_LIVE_SMOKE_OK' + RESET + '\\n>\\n');
         } else {
           dataCb('> ' + prompt + '\\n' + RC + 'OK' + RESET + '\\n>\\n');
         }
@@ -279,6 +281,50 @@ describe('CLI regressions with fake PTY', () => {
       assert.equal(parsed.status, 'ok');
       assert.equal(parsed.smoke.expectedText, 'PTY_SMOKE_OK');
       assert.equal(parsed.smoke.extractedText, 'PTY_SMOKE_OK');
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it('runs live smoke JSON with the default no-tools permission mode', async () => {
+    const harness = makeFakeHarness('live-smoke');
+    try {
+      const { stdout } = await execFileAsync('node', [SCRIPT, '--live-smoke', '--json', '--timeout', '30000'], {
+        env: harness.env,
+        timeout: 60000,
+      });
+      const parsed = JSON.parse(stdout.trim());
+      assert.equal(parsed.tool, 'companion-for-agy');
+      assert.equal(parsed.status, 'ok');
+      assert.equal(parsed.permissionMode, 'no-tools');
+      assert.equal(parsed.liveSmoke.expectedText, 'AGY_LIVE_SMOKE_OK');
+      assert.equal(parsed.liveSmoke.response, 'AGY_LIVE_SMOKE_OK');
+      assert.equal(parsed.liveSmoke.matched, true);
+      const events = fs.readFileSync(harness.eventLog, 'utf8');
+      assert.match(events, /Reply with exactly AGY_LIVE_SMOKE_OK/);
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it('fails live smoke JSON when the marker does not match', async () => {
+    const harness = makeFakeHarness('ok');
+    try {
+      await assert.rejects(
+        execFileAsync('node', [SCRIPT, '--live-smoke', '--json', '--timeout', '30000'], {
+          env: harness.env,
+          timeout: 60000,
+        }),
+        err => {
+          assert.equal(err.code, 5);
+          const parsed = JSON.parse(err.stdout.trim());
+          assert.equal(parsed.status, 'fail');
+          assert.equal(parsed.liveSmoke.response, 'OK');
+          assert.equal(parsed.liveSmoke.matched, false);
+          assert.ok(parsed.blockers.some(blocker => blocker.includes('AGY_LIVE_SMOKE_OK')));
+          return true;
+        },
+      );
     } finally {
       harness.cleanup();
     }
