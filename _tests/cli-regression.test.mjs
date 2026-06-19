@@ -19,8 +19,17 @@ function makeFakeHarness(mode, options = {}) {
   const fakeAgy = path.join(tempDir, process.platform === 'win32' ? 'agy.exe' : 'agy');
   const fakePty = path.join(tempDir, 'fake-pty.cjs');
   const eventLog = path.join(tempDir, 'events.log');
+  const prebuildDir = path.join(tempDir, 'prebuilds', `${process.platform}-${process.arch}`);
   fs.writeFileSync(fakeAgy, '', 'utf8');
   fs.writeFileSync(eventLog, '', 'utf8');
+  fs.writeFileSync(path.join(tempDir, 'package.json'), '{"name":"fake-pty"}', 'utf8');
+  fs.mkdirSync(prebuildDir, { recursive: true });
+  fs.writeFileSync(path.join(prebuildDir, process.platform === 'win32' ? 'conpty.node' : 'pty.node'), '', 'utf8');
+  if (process.platform !== 'win32') {
+    const helperPath = path.join(prebuildDir, 'spawn-helper');
+    fs.writeFileSync(helperPath, '#!/bin/sh\nexit 0\n', 'utf8');
+    fs.chmodSync(helperPath, 0o755);
+  }
   fs.writeFileSync(fakePty, `
 const fs = require('fs');
 const mode = process.env.AGY_COMPANION_FAKE_MODE;
@@ -46,6 +55,11 @@ exports.spawn = function spawn(_cmd, args) {
   }
 
   setTimeout(() => {
+    if (mode === 'pty-smoke') {
+      dataCb(RC + 'PTY_SMOKE_OK' + RESET + '\\n');
+      emitExit(0);
+      return;
+    }
     dataCb('Antigravity CLI 1.0.6\\nGemini 3.5 Flash (Medium)\\n? for shortcuts\\nsession ready\\n');
   }, 20);
 
@@ -248,6 +262,23 @@ describe('CLI regressions with fake PTY', () => {
       assert.equal(typeof parsed.nodePty.loadable, 'boolean');
       assert.equal(parsed.agy.path, process.execPath);
       assert.equal(fs.readFileSync(harness.eventLog, 'utf8'), '');
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it('prints PTY smoke JSON without requiring agy auth', async () => {
+    const harness = makeFakeHarness('pty-smoke', { agyPath: process.execPath });
+    try {
+      const { stdout } = await execFileAsync('node', [SCRIPT, '--pty-smoke', '--json'], {
+        env: harness.env,
+        timeout: 20000,
+      });
+      const parsed = JSON.parse(stdout.trim());
+      assert.equal(parsed.tool, 'companion-for-agy');
+      assert.equal(parsed.status, 'ok');
+      assert.equal(parsed.smoke.expectedText, 'PTY_SMOKE_OK');
+      assert.equal(parsed.smoke.extractedText, 'PTY_SMOKE_OK');
     } finally {
       harness.cleanup();
     }

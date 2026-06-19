@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- Packaged `--pty-smoke` platform smoke plus `npm run pty-smoke` / `npm run pty-smoke:json`. The smoke verifies the installed `node-pty` truecolor path without agy authentication, reports blockers/warnings as text or JSON, and gives macOS/Linux a repeatable pre-live-smoke gate before real `agy --debug` sessions.
+
 ## [1.4.1] - 2026-06-16
 
 ### Added

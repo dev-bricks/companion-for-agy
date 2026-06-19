@@ -44,6 +44,7 @@ That means other agents such as Claude Code, Codex, or CI/CD scripts cannot prog
 > - **agy v1.0.x** (Homebrew `antigravity-cli`) does not support `--model`; use `--no-model` or `AGY_COMPANION_NO_MODEL=1`.
 > - If color extraction returns an empty result, run with `--debug` and inspect `agy-debug.log`.
 > - Run `companion-for-agy --doctor` before the first macOS/Linux smoke to verify agy path, `node-pty`, native binary, and POSIX `spawn-helper` readiness.
+> - Run `companion-for-agy --pty-smoke` before the first live agy test. It verifies the packaged `node-pty` truecolor path without requiring agy authentication.
 > - On Linux, run `npm run test:linux-pty` before the first live agy test. It verifies the PTY pipeline without requiring agy authentication.
 
 ## Installation
@@ -125,6 +126,7 @@ companion-for-agy --allow "write_file(/my/output/*)" --add-dir "/my/output" \
 | `--json` | Output as JSON object |
 | `--debug` | Save raw PTY output to `agy-debug.log` |
 | `--doctor` | Print a platform preflight for agy, node-pty and helper artifacts |
+| `--pty-smoke` | Run an auth-free node-pty truecolor smoke for platform validation |
 | `--lang <code>` | CLI output language: `en`, `de`, `es`, `zh-Hans`, `ja`, `ru` |
 | `--` | Stop option parsing; use before prompts that start with `-` |
 
@@ -149,6 +151,7 @@ companion-for-agy --no-model "prompt"
 companion-for-agy --skip-permissions --add-dir "/my/output" "Write hello.txt to /my/output"
 companion-for-agy --doctor
 companion-for-agy --doctor --json
+companion-for-agy --pty-smoke --json
 companion-for-agy --lang de --help
 companion-for-agy --no-tools -- "-dash-prefixed prompt"
 ```
@@ -156,6 +159,7 @@ companion-for-agy --no-tools -- "-dash-prefixed prompt"
 JSON output includes `response`, `model`, `requestedModel`, and `permissionMode`. `model` is detected from agy's banner when possible and falls back to `requestedModel`.
 
 For `--doctor --json`, the output instead contains a preflight report with `status`, `blockers`, `warnings`, agy version detection, `node-pty` load details and helper/binary paths.
+For `--pty-smoke --json`, the output contains a PTY smoke report with the command used, expected/extracted truecolor text, raw byte count, and blockers/warnings. This is the first auth-free check to run on macOS and Linux before a real `agy --debug` live smoke.
 
 ## Internationalization Scope
 

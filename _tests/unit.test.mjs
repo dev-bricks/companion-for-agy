@@ -14,6 +14,7 @@ import {
   shouldResetIdleTimer, RESPONSE_MIN_PROGRESS_BYTES,
   STARTUP_FALLBACK_MS,
   parseSemverishVersion, versionSupportsModelFlag, inspectNodePtyArtifacts,
+  buildPtySmokeCommand, PTY_SMOKE_TEXT, renderPtySmokeReport,
 } from '../src/agy-companion.mjs';
 import { detectLocale, getMessage } from '../src/locales.mjs';
 
@@ -978,5 +979,59 @@ describe('doctor helpers', () => {
     } finally {
       fs.rmSync(tempRoot, { recursive: true, force: true });
     }
+  });
+
+  it('builds POSIX PTY smoke command through /bin/sh', () => {
+    const command = buildPtySmokeCommand({
+      platform: 'linux',
+      responseColorParams: '38;2;1;2;3',
+      responseText: PTY_SMOKE_TEXT,
+    });
+    assert.equal(command.command, '/bin/sh');
+    assert.deepEqual(command.args.slice(0, 2), ['-lc', "printf '\\033[38;2;1;2;3mPTY_SMOKE_OK\\033[0m\\n'"]);
+  });
+
+  it('builds Windows PTY smoke command through node', () => {
+    const command = buildPtySmokeCommand({
+      platform: 'win32',
+      responseColorParams: '38;2;1;2;3',
+      responseText: PTY_SMOKE_TEXT,
+    });
+    assert.equal(command.command, process.execPath);
+    assert.equal(command.args[0], '-e');
+    assert.match(command.args[1], /PTY_SMOKE_OK/);
+  });
+
+  it('renders PTY smoke blockers and extracted response', () => {
+    const report = {
+      toolVersion: '1.4.1',
+      platform: 'linux',
+      arch: 'x64',
+      nodeVersion: 'v20.0.0',
+      status: 'fail',
+      nodePty: {
+        loadable: true,
+        source: 'dependency',
+        resolvedPath: '/tmp/node-pty/index.js',
+        nativeBinaryPath: '/tmp/node-pty/prebuilds/linux-x64/pty.node',
+        helperPath: '/tmp/node-pty/prebuilds/linux-x64/spawn-helper',
+        helperExecutable: true,
+      },
+      smoke: {
+        command: '/bin/sh',
+        args: ['-lc', 'printf ...'],
+        expectedText: PTY_SMOKE_TEXT,
+        extractedText: null,
+        exitCode: 0,
+        rawBytes: 12,
+      },
+      responseColor: { rgb: [232, 234, 237] },
+      blockers: ['PTY smoke did not extract expected truecolor response'],
+      warnings: [],
+    };
+    const rendered = renderPtySmokeReport(report);
+    assert.match(rendered, /PTY smoke/);
+    assert.match(rendered, /Blockers:/);
+    assert.match(rendered, /PTY smoke did not extract/);
   });
 });

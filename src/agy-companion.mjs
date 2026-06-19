@@ -37,6 +37,7 @@ export const NO_RESPONSE_EXIT_CODE = 4;
 export const SHUTDOWN_FORCE_KILL_MS = 2000;
 export const SHUTDOWN_CLEANUP_DELAY_MS = 1000;
 export const DEFAULT_RESPONSE_RGB = [232, 234, 237];
+export const PTY_SMOKE_TEXT = 'PTY_SMOKE_OK';
 // Minimum new bytes required to justify resetting the idle timer (guards against 1-byte trickle loops)
 export const RESPONSE_MIN_PROGRESS_BYTES = 10;
 // If STARTUP_DONE_PATTERNS never fire (e.g. different agy version or language), proceed anyway after this delay
@@ -394,6 +395,150 @@ export function collectDoctorReport() {
   };
 }
 
+export function buildPtySmokeCommand({
+  platform = process.platform,
+  responseColorParams = getResponseSgrParams(),
+  responseText = PTY_SMOKE_TEXT,
+} = {}) {
+  if (platform === 'win32') {
+    const payload = `\x1b[${responseColorParams}m${responseText}\x1b[0m\n`;
+    return {
+      command: process.execPath,
+      args: ['-e', `process.stdout.write(${JSON.stringify(payload)})`],
+      description: 'node truecolor stdout',
+    };
+  }
+
+  return {
+    command: '/bin/sh',
+    args: ['-lc', `printf '\\033[${responseColorParams}m${responseText}\\033[0m\\n'`],
+    description: '/bin/sh truecolor printf',
+  };
+}
+
+function finalizePtySmokeReport(report) {
+  report.status = report.blockers.length > 0 ? 'fail' : report.warnings.length > 0 ? 'warn' : 'ok';
+  return report;
+}
+
+export async function collectPtySmokeReport({ timeoutMs = 10000 } = {}) {
+  const nodePty = resolveNodePtyModule();
+  const nodePtyArtifacts = inspectNodePtyArtifacts(nodePty.packageRoot);
+  const configuredRgb = parseResponseRgb(process.env.AGY_COMPANION_RESPONSE_RGB) || DEFAULT_RESPONSE_RGB;
+  const responseColorParams = responseRgbToSgrParams(configuredRgb);
+  const command = buildPtySmokeCommand({ responseColorParams });
+  const report = {
+    tool: 'companion-for-agy',
+    toolVersion: getPackageVersion(),
+    platform: process.platform,
+    arch: process.arch,
+    nodeVersion: process.version,
+    nodePty: {
+      loadable: nodePty.ok,
+      source: nodePty.source,
+      resolvedPath: nodePty.resolvedPath,
+      packageRoot: nodePty.packageRoot,
+      error: nodePty.error ? nodePty.error.message : null,
+      nativeBinaryPath: nodePtyArtifacts.nativeBinaryPath,
+      helperPath: nodePtyArtifacts.helperPath,
+      helperExists: nodePtyArtifacts.helperExists,
+      helperExecutable: nodePtyArtifacts.helperExecutable,
+    },
+    responseColor: {
+      rgb: configuredRgb,
+      sgrParams: responseColorParams,
+    },
+    smoke: {
+      command: command.command,
+      args: command.args,
+      description: command.description,
+      expectedText: PTY_SMOKE_TEXT,
+      extractedText: null,
+      rawBytes: 0,
+      exitCode: null,
+      timedOut: false,
+      error: null,
+    },
+    blockers: [],
+    warnings: [],
+    status: 'fail',
+  };
+
+  if (!nodePty.ok) {
+    report.blockers.push('node-pty could not be loaded');
+    return finalizePtySmokeReport(report);
+  }
+
+  if (!nodePtyArtifacts.nativeBinaryPath) {
+    report.warnings.push('node-pty native binary could not be located under prebuild/build paths');
+  }
+
+  if (process.platform !== 'win32') {
+    if (!fs.existsSync('/bin/sh')) {
+      report.blockers.push('/bin/sh is required for POSIX PTY smoke');
+    }
+    if (!nodePtyArtifacts.helperExists) {
+      report.blockers.push('node-pty spawn-helper not found in expected prebuild/build paths');
+    } else if (!nodePtyArtifacts.helperExecutable) {
+      report.blockers.push(`node-pty spawn-helper is not executable: ${nodePtyArtifacts.helperPath}`);
+    }
+  }
+
+  if (report.blockers.length > 0) {
+    return finalizePtySmokeReport(report);
+  }
+
+  await new Promise(resolve => {
+    let finished = false;
+    let raw = '';
+    let ptyProc = null;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      report.smoke.rawBytes = Buffer.byteLength(raw, 'utf8');
+      report.smoke.extractedText = extractByResponseColor(raw, responseColorParams);
+      if (report.smoke.extractedText !== PTY_SMOKE_TEXT) {
+        report.blockers.push('PTY smoke did not extract expected truecolor response');
+      }
+      resolve();
+    };
+
+    const timer = setTimeout(() => {
+      report.smoke.timedOut = true;
+      report.blockers.push(`PTY smoke timed out after ${timeoutMs}ms`);
+      try { ptyProc?.kill(); } catch (_) {}
+      finish();
+    }, timeoutMs);
+
+    try {
+      ptyProc = nodePty.pty.spawn(command.command, command.args, {
+        name: 'xterm-256color',
+        cols: 80,
+        rows: 24,
+        cwd: os.tmpdir(),
+        env: { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' },
+      });
+      ptyProc.onData(chunk => {
+        raw += chunk;
+      });
+      ptyProc.onExit(({ exitCode }) => {
+        report.smoke.exitCode = exitCode;
+        if (exitCode !== 0) {
+          report.blockers.push(`PTY smoke command exited with code ${exitCode}`);
+        }
+        finish();
+      });
+    } catch (error) {
+      report.smoke.error = error.message;
+      report.blockers.push(`PTY smoke failed to start: ${error.message}`);
+      finish();
+    }
+  });
+
+  return finalizePtySmokeReport(report);
+}
+
 export function renderDoctorReport(report) {
   const lines = [
     `companion-for-agy doctor ${report.toolVersion || '(unknown version)'}`,
@@ -416,6 +561,49 @@ export function renderDoctorReport(report) {
   }
 
   lines.push('', `response RGB: ${report.responseColor.rgb.join(',')}`);
+
+  if (report.blockers.length > 0) {
+    lines.push('', 'Blockers:');
+    for (const blocker of report.blockers) {
+      lines.push(`- ${blocker}`);
+    }
+  }
+
+  if (report.warnings.length > 0) {
+    lines.push('', 'Warnings:');
+    for (const warning of report.warnings) {
+      lines.push(`- ${warning}`);
+    }
+  }
+
+  return lines.join('\n') + '\n';
+}
+
+export function renderPtySmokeReport(report) {
+  const lines = [
+    `companion-for-agy PTY smoke ${report.toolVersion || '(unknown version)'}`,
+    `Platform: ${report.platform}-${report.arch} | Node ${report.nodeVersion}`,
+    `Status: ${report.status.toUpperCase()}`,
+    '',
+    `node-pty load: ${report.nodePty.loadable ? 'PASS' : 'FAIL'} (${report.nodePty.source})`,
+    `node-pty module: ${report.nodePty.resolvedPath || '(not resolved)'}`,
+    `node-pty binary: ${report.nodePty.nativeBinaryPath || '(not located)'}`,
+    `node-pty helper: ${report.nodePty.helperPath || '(n/a)'}`,
+  ];
+
+  if (report.platform !== 'win32') {
+    lines.push(`node-pty helper executable: ${report.nodePty.helperExecutable === null ? 'unknown' : report.nodePty.helperExecutable ? 'PASS' : 'FAIL'}`);
+  }
+
+  lines.push(
+    '',
+    `smoke command: ${[report.smoke.command, ...report.smoke.args].join(' ')}`,
+    `response RGB: ${report.responseColor.rgb.join(',')}`,
+    `expected text: ${report.smoke.expectedText}`,
+    `extracted text: ${report.smoke.extractedText || '(none)'}`,
+    `exit code: ${report.smoke.exitCode === null ? '(none)' : report.smoke.exitCode}`,
+    `raw bytes: ${report.smoke.rawBytes}`,
+  );
 
   if (report.blockers.length > 0) {
     lines.push('', 'Blockers:');
@@ -833,6 +1021,7 @@ if (isMainModule()) {
   let debug = false;
   let jsonOutput = false;
   let doctorMode = false;
+  let ptySmokeMode = false;
   let permissionMode = 'sandbox';
   const customAllow = [];
   const customDeny = [];
@@ -867,6 +1056,8 @@ if (isMainModule()) {
       jsonOutput = true;
     } else if (arg === '--doctor') {
       doctorMode = true;
+    } else if (arg === '--pty-smoke') {
+      ptySmokeMode = true;
     } else if (arg === '--sandbox') {
       permissionMode = 'sandbox';
     } else if (arg === '--skip-permissions' || arg === '--dangerously-skip-permissions') {
@@ -915,7 +1106,7 @@ if (isMainModule()) {
   }
 
   const userPrompt = promptParts.join(' ').trim();
-  if (!doctorMode && !userPrompt) {
+  if (!doctorMode && !ptySmokeMode && !userPrompt) {
     process.stderr.write(getMessage('errNoPrompt', lang));
     printUsage(lang);
     process.exit(1);
@@ -954,6 +1145,16 @@ if (isMainModule()) {
       process.stdout.write(JSON.stringify(report) + '\n');
     } else {
       process.stdout.write(renderDoctorReport(report));
+    }
+    process.exit(report.blockers.length > 0 ? 2 : 0);
+  }
+
+  if (ptySmokeMode) {
+    const report = await collectPtySmokeReport();
+    if (jsonOutput) {
+      process.stdout.write(JSON.stringify(report) + '\n');
+    } else {
+      process.stdout.write(renderPtySmokeReport(report));
     }
     process.exit(report.blockers.length > 0 ? 2 : 0);
   }

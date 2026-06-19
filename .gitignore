@@ -18,6 +18,7 @@ TESTERGEBNISSE.txt
 BUGREPORT.md
 DIAGNOSE_REPORT.md
 PORTIERUNGSPLAN.md
+LOCK*.txt
 
 # Sensible Daten
 .env
