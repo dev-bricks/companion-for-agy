@@ -15,6 +15,7 @@ import {
   STARTUP_FALLBACK_MS,
   parseSemverishVersion, versionSupportsModelFlag, inspectNodePtyArtifacts,
   buildPtySmokeCommand, PTY_SMOKE_TEXT, renderPtySmokeReport,
+  renderPlatformSmokeReport, PLATFORM_SMOKE_LIVE_COMMAND,
 } from '../src/agy-companion.mjs';
 import { detectLocale, getMessage } from '../src/locales.mjs';
 
@@ -1033,5 +1034,31 @@ describe('doctor helpers', () => {
     assert.match(rendered, /PTY smoke/);
     assert.match(rendered, /Blockers:/);
     assert.match(rendered, /PTY smoke did not extract/);
+  });
+
+  it('renders bundled platform smoke summary and next live command', () => {
+    const report = {
+      toolVersion: '1.4.1',
+      platform: 'linux',
+      arch: 'x64',
+      nodeVersion: 'v20.0.0',
+      status: 'warn',
+      checks: {
+        doctor: { status: 'warn' },
+        ptySmoke: { status: 'ok' },
+      },
+      nextLiveSmoke: {
+        command: PLATFORM_SMOKE_LIVE_COMMAND,
+        expectedText: 'AGY_LIVE_SMOKE_OK',
+        debugLog: '/tmp/agy-debug.log',
+      },
+      blockers: [],
+      warnings: ['doctor: agy 1.0.x detected; prefer --no-model or AGY_COMPANION_NO_MODEL=1'],
+    };
+    const rendered = renderPlatformSmokeReport(report);
+    assert.match(rendered, /platform smoke/);
+    assert.match(rendered, /doctor: WARN/);
+    assert.match(rendered, /pty smoke: OK/);
+    assert.match(rendered, /--live-smoke --no-model --debug --json/);
   });
 });

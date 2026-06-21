@@ -35,6 +35,7 @@
 >
 > - **agy v1.0.x** (Homebrew `antigravity-cli`) 不支持 `--model`；请使用 `--no-model` 或 `AGY_COMPANION_NO_MODEL=1`。
 > - 如果颜色提取结果为空，请使用 `--debug` 并检查 `agy-debug.log`。
+> - 在 macOS/Linux 上，请先运行 `companion-for-agy --platform-smoke --json`。它把 `--doctor` 和 `--pty-smoke` 合并为一个 pre-live 平台报告。
 
 ## 安装
 
@@ -91,6 +92,10 @@ companion-for-agy [选项] "提示词"
 | `--timeout <毫秒>` | 超时时间 (默认: `120000`) |
 | `--json` | 以 JSON 对象输出 |
 | `--debug` | 将原始 PTY 输出保存到 `agy-debug.log` |
+| `--doctor` | 输出 agy、node-pty 和 helper artifact 的平台预检 |
+| `--platform-smoke` | 将 `--doctor` 和 `--pty-smoke` 作为一个 pre-live gate 运行 |
+| `--pty-smoke` | 运行无需认证的 node-pty truecolor smoke |
+| `--live-smoke` | 运行真实 agy 标记 smoke；默认使用 `no-tools` |
 | `--lang <代码>` | CLI 输出语言: `en`, `de`, `es`, `zh-Hans`, `ja`, `ru` |
 | `--` | 停止解析选项；用于以 `-` 开头的提示词 |
 
@@ -112,11 +117,13 @@ companion-for-agy --researcher "关于 Node.js 24 的最新信息"
 companion-for-agy --read-only --allow "command(git log)" "提示词"
 companion-for-agy --json --model gemini-3.5-pro "提示词"
 companion-for-agy --no-model "提示词"
+companion-for-agy --platform-smoke --json
 companion-for-agy --lang zh-Hans --help
 companion-for-agy --no-tools -- "-以短横线开头的提示词"
 ```
 
 JSON 输出包含 `response`、`model`、`requestedModel` 和 `permissionMode`。
+`--doctor`、`--platform-smoke`、`--pty-smoke` 和 `--live-smoke` 搭配 `--json` 时会输出包含 `status`、`blockers` 和 `warnings` 的平台报告。
 
 ## 国际化
 

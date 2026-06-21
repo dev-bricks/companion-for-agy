@@ -35,6 +35,7 @@
 >
 > - **agy v1.0.x** (Homebrew `antigravity-cli`) не поддерживает `--model`; используйте `--no-model` или `AGY_COMPANION_NO_MODEL=1`.
 > - Если извлечение цвета возвращает пустой результат, запустите с `--debug` и проверьте `agy-debug.log`.
+> - Для macOS/Linux перед live smoke запустите `companion-for-agy --platform-smoke --json`. Он объединяет `--doctor` и `--pty-smoke` в один pre-live отчёт.
 
 ## Установка
 
@@ -91,6 +92,10 @@ companion-for-agy [опции] "промпт"
 | `--timeout <мс>` | Тайм-аут в мс (по умолчанию: `120000`) |
 | `--json` | Вывод как JSON-объект |
 | `--debug` | Сохранить необработанный PTY-вывод в `agy-debug.log` |
+| `--doctor` | Показать preflight платформы для agy, node-pty и helper-артефактов |
+| `--platform-smoke` | Запустить `--doctor` и `--pty-smoke` как единый pre-live gate |
+| `--pty-smoke` | Запустить truecolor smoke для node-pty без авторизации |
+| `--live-smoke` | Запустить реальный marker smoke agy; по умолчанию используется `no-tools` |
 | `--lang <код>` | Язык вывода CLI: `en`, `de`, `es`, `zh-Hans`, `ja`, `ru` |
 | `--` | Остановить разбор опций; используйте перед промптами, начинающимися с `-` |
 
@@ -112,11 +117,13 @@ companion-for-agy --researcher "Последняя информация о Node.
 companion-for-agy --read-only --allow "command(git log)" "промпт"
 companion-for-agy --json --model gemini-3.5-pro "промпт"
 companion-for-agy --no-model "промпт"
+companion-for-agy --platform-smoke --json
 companion-for-agy --lang ru --help
 companion-for-agy --no-tools -- "-промпт с дефисом"
 ```
 
 JSON-вывод содержит `response`, `model`, `requestedModel` и `permissionMode`.
+`--doctor`, `--platform-smoke`, `--pty-smoke` и `--live-smoke` с `--json` выводят платформенные отчёты со `status`, `blockers` и `warnings`.
 
 ## Интернационализация
 

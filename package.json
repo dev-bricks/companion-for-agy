@@ -26,6 +26,8 @@
     "start": "node src/agy-companion.mjs",
     "doctor": "node src/agy-companion.mjs --doctor",
     "doctor:json": "node src/agy-companion.mjs --doctor --json",
+    "platform-smoke": "node src/agy-companion.mjs --platform-smoke",
+    "platform-smoke:json": "node src/agy-companion.mjs --platform-smoke --json",
     "pty-smoke": "node src/agy-companion.mjs --pty-smoke",
     "pty-smoke:json": "node src/agy-companion.mjs --pty-smoke --json",
     "live-smoke": "node src/agy-companion.mjs --live-smoke --no-model --debug",

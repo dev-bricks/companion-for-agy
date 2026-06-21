@@ -35,6 +35,7 @@ Por eso otros agentes, como Claude Code, Codex o scripts de CI/CD, no pueden lee
 >
 > - **agy v1.0.x** (Homebrew `antigravity-cli`) no soporta `--model`; usa `--no-model` o `AGY_COMPANION_NO_MODEL=1`.
 > - Si la extracción de color devuelve vacío, ejecuta con `--debug` y revisa `agy-debug.log`.
+> - Para macOS/Linux, ejecuta `companion-for-agy --platform-smoke --json` antes del live smoke. Agrupa `--doctor` y `--pty-smoke` en un único informe pre-live.
 
 ## Instalación
 
@@ -91,6 +92,10 @@ Los formatos coinciden con el sistema de permisos de agy (`settings.json`).
 | `--timeout <ms>` | Tiempo de espera en ms (predeterminado: `120000`) |
 | `--json` | Salida como objeto JSON |
 | `--debug` | Guardar salida PTY sin procesar en `agy-debug.log` |
+| `--doctor` | Mostrar preflight de plataforma para agy, node-pty y artefactos helper |
+| `--platform-smoke` | Ejecutar `--doctor` y `--pty-smoke` como gate pre-live |
+| `--pty-smoke` | Ejecutar smoke truecolor de node-pty sin autenticación |
+| `--live-smoke` | Ejecutar un smoke real de agy con marcador; usa `no-tools` por defecto |
 | `--lang <código>` | Idioma de la CLI: `en`, `de`, `es`, `zh-Hans`, `ja`, `ru` |
 | `--` | Detener el análisis de opciones; usar antes de prompts que comienzan con `-` |
 
@@ -112,11 +117,13 @@ companion-for-agy --researcher "Última información sobre Node.js 24"
 companion-for-agy --read-only --allow "command(git log)" "prompt"
 companion-for-agy --json --model gemini-3.5-pro "prompt"
 companion-for-agy --no-model "prompt"
+companion-for-agy --platform-smoke --json
 companion-for-agy --lang es --help
 companion-for-agy --no-tools -- "-prompt con guion"
 ```
 
 La salida JSON incluye `response`, `model`, `requestedModel` y `permissionMode`.
+Los modos `--doctor`, `--platform-smoke`, `--pty-smoke` y `--live-smoke` emiten informes de plataforma con `status`, `blockers` y `warnings` cuando se usan con `--json`.
 
 ## Internacionalización
 

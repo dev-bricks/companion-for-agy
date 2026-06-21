@@ -40,6 +40,7 @@ export const DEFAULT_RESPONSE_RGB = [232, 234, 237];
 export const PTY_SMOKE_TEXT = 'PTY_SMOKE_OK';
 export const LIVE_SMOKE_TEXT = 'AGY_LIVE_SMOKE_OK';
 export const LIVE_SMOKE_EXIT_CODE = 5;
+export const PLATFORM_SMOKE_LIVE_COMMAND = 'companion-for-agy --live-smoke --no-model --debug --json';
 // Minimum new bytes required to justify resetting the idle timer (guards against 1-byte trickle loops)
 export const RESPONSE_MIN_PROGRESS_BYTES = 10;
 // If STARTUP_DONE_PATTERNS never fire (e.g. different agy version or language), proceed anyway after this delay
@@ -541,6 +542,46 @@ export async function collectPtySmokeReport({ timeoutMs = 10000 } = {}) {
   return finalizePtySmokeReport(report);
 }
 
+function statusFromFindings(blockers, warnings) {
+  if (blockers.length > 0) return 'fail';
+  if (warnings.length > 0) return 'warn';
+  return 'ok';
+}
+
+export async function collectPlatformSmokeReport({ ptyTimeoutMs = 10000 } = {}) {
+  const doctor = collectDoctorReport();
+  const ptySmoke = await collectPtySmokeReport({ timeoutMs: ptyTimeoutMs });
+  const blockers = [
+    ...doctor.blockers.map(blocker => `doctor: ${blocker}`),
+    ...ptySmoke.blockers.map(blocker => `pty-smoke: ${blocker}`),
+  ];
+  const warnings = [
+    ...doctor.warnings.map(warning => `doctor: ${warning}`),
+    ...ptySmoke.warnings.map(warning => `pty-smoke: ${warning}`),
+  ];
+
+  return {
+    tool: 'companion-for-agy',
+    toolVersion: getPackageVersion(),
+    platform: process.platform,
+    arch: process.arch,
+    nodeVersion: process.version,
+    checks: {
+      doctor,
+      ptySmoke,
+    },
+    nextLiveSmoke: {
+      command: PLATFORM_SMOKE_LIVE_COMMAND,
+      expectedText: LIVE_SMOKE_TEXT,
+      requiresAuthenticatedAgy: true,
+      debugLog: path.resolve('agy-debug.log'),
+    },
+    blockers,
+    warnings,
+    status: statusFromFindings(blockers, warnings),
+  };
+}
+
 export function renderDoctorReport(report) {
   const lines = [
     `companion-for-agy doctor ${report.toolVersion || '(unknown version)'}`,
@@ -606,6 +647,38 @@ export function renderPtySmokeReport(report) {
     `exit code: ${report.smoke.exitCode === null ? '(none)' : report.smoke.exitCode}`,
     `raw bytes: ${report.smoke.rawBytes}`,
   );
+
+  if (report.blockers.length > 0) {
+    lines.push('', 'Blockers:');
+    for (const blocker of report.blockers) {
+      lines.push(`- ${blocker}`);
+    }
+  }
+
+  if (report.warnings.length > 0) {
+    lines.push('', 'Warnings:');
+    for (const warning of report.warnings) {
+      lines.push(`- ${warning}`);
+    }
+  }
+
+  return lines.join('\n') + '\n';
+}
+
+export function renderPlatformSmokeReport(report) {
+  const lines = [
+    `companion-for-agy platform smoke ${report.toolVersion || '(unknown version)'}`,
+    `Platform: ${report.platform}-${report.arch} | Node ${report.nodeVersion}`,
+    `Status: ${report.status.toUpperCase()}`,
+    '',
+    `doctor: ${report.checks.doctor.status.toUpperCase()}`,
+    `pty smoke: ${report.checks.ptySmoke.status.toUpperCase()}`,
+    '',
+    'Next authenticated live smoke:',
+    `  ${report.nextLiveSmoke.command}`,
+    `  expected text: ${report.nextLiveSmoke.expectedText}`,
+    `  debug log: ${report.nextLiveSmoke.debugLog}`,
+  ];
 
   if (report.blockers.length > 0) {
     lines.push('', 'Blockers:');
@@ -1102,6 +1175,7 @@ if (isMainModule()) {
   let debug = false;
   let jsonOutput = false;
   let doctorMode = false;
+  let platformSmokeMode = false;
   let ptySmokeMode = false;
   let liveSmokeMode = false;
   let permissionMode = 'sandbox';
@@ -1139,6 +1213,8 @@ if (isMainModule()) {
       jsonOutput = true;
     } else if (arg === '--doctor') {
       doctorMode = true;
+    } else if (arg === '--platform-smoke') {
+      platformSmokeMode = true;
     } else if (arg === '--pty-smoke') {
       ptySmokeMode = true;
     } else if (arg === '--live-smoke') {
@@ -1204,7 +1280,7 @@ if (isMainModule()) {
       userPrompt = buildLiveSmokePrompt();
     }
   }
-  if (!doctorMode && !ptySmokeMode && !liveSmokeMode && !userPrompt) {
+  if (!doctorMode && !platformSmokeMode && !ptySmokeMode && !liveSmokeMode && !userPrompt) {
     process.stderr.write(getMessage('errNoPrompt', lang));
     printUsage(lang);
     process.exit(1);
@@ -1243,6 +1319,16 @@ if (isMainModule()) {
       process.stdout.write(JSON.stringify(report) + '\n');
     } else {
       process.stdout.write(renderDoctorReport(report));
+    }
+    process.exit(report.blockers.length > 0 ? 2 : 0);
+  }
+
+  if (platformSmokeMode) {
+    const report = await collectPlatformSmokeReport();
+    if (jsonOutput) {
+      process.stdout.write(JSON.stringify(report) + '\n');
+    } else {
+      process.stdout.write(renderPlatformSmokeReport(report));
     }
     process.exit(report.blockers.length > 0 ? 2 : 0);
   }

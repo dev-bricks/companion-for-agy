@@ -45,6 +45,7 @@ That means other agents such as Claude Code, Codex, or CI/CD scripts cannot prog
 > - If color extraction returns an empty result, run with `--debug` and inspect `agy-debug.log`.
 > - Run `companion-for-agy --doctor` before the first macOS/Linux smoke to verify agy path, `node-pty`, native binary, and POSIX `spawn-helper` readiness.
 > - Run `companion-for-agy --pty-smoke` before the first live agy test. It verifies the packaged `node-pty` truecolor path without requiring agy authentication.
+> - Run `companion-for-agy --platform-smoke --json` to bundle `--doctor` and `--pty-smoke` into one pre-live platform gate for macOS/Linux handoff logs.
 > - Run `companion-for-agy --live-smoke --no-model --debug --json` for the first authenticated macOS/Linux live smoke. It asks agy for the marker `AGY_LIVE_SMOKE_OK`, verifies the captured response exactly, and writes raw ANSI evidence to `agy-debug.log`.
 > - On Linux, run `npm run test:linux-pty` before the first live agy test. It verifies the PTY pipeline without requiring agy authentication.
 
@@ -127,6 +128,7 @@ companion-for-agy --allow "write_file(/my/output/*)" --add-dir "/my/output" \
 | `--json` | Output as JSON object |
 | `--debug` | Save raw PTY output to `agy-debug.log` |
 | `--doctor` | Print a platform preflight for agy, node-pty and helper artifacts |
+| `--platform-smoke` | Run `--doctor` and `--pty-smoke` as one pre-live platform gate |
 | `--pty-smoke` | Run an auth-free node-pty truecolor smoke for platform validation |
 | `--live-smoke` | Run a real agy marker smoke; defaults to `no-tools` unless another permission mode is selected |
 | `--lang <code>` | CLI output language: `en`, `de`, `es`, `zh-Hans`, `ja`, `ru` |
@@ -153,6 +155,7 @@ companion-for-agy --no-model "prompt"
 companion-for-agy --skip-permissions --add-dir "/my/output" "Write hello.txt to /my/output"
 companion-for-agy --doctor
 companion-for-agy --doctor --json
+companion-for-agy --platform-smoke --json
 companion-for-agy --pty-smoke --json
 companion-for-agy --live-smoke --no-model --debug --json
 companion-for-agy --lang de --help
@@ -162,6 +165,7 @@ companion-for-agy --no-tools -- "-dash-prefixed prompt"
 JSON output includes `response`, `model`, `requestedModel`, and `permissionMode`. `model` is detected from agy's banner when possible and falls back to `requestedModel`.
 
 For `--doctor --json`, the output instead contains a preflight report with `status`, `blockers`, `warnings`, agy version detection, `node-pty` load details and helper/binary paths.
+For `--platform-smoke --json`, the output contains a bundled pre-live report with nested doctor and PTY-smoke results plus the exact authenticated live-smoke command to run next.
 For `--pty-smoke --json`, the output contains a PTY smoke report with the command used, expected/extracted truecolor text, raw byte count, and blockers/warnings. This is the first auth-free check to run on macOS and Linux before a real `agy --debug` live smoke.
 For `--live-smoke --no-model --debug --json`, the output contains an authenticated agy live-smoke report with `status`, marker match details, model metadata, permission mode, response RGB and the debug-log path. A marker mismatch exits with code `5`.
 
