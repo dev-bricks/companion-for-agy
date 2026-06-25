@@ -119,18 +119,55 @@ export function findAgyPath() {
 
 export const AGY_PATH = findAgyPath();
 
+function isAsciiDigitChar(ch) {
+  return ch >= '0' && ch <= '9';
+}
+
+function isVersionSuffixChar(ch) {
+  return (
+    isAsciiDigitChar(ch) ||
+    (ch >= 'A' && ch <= 'Z') ||
+    (ch >= 'a' && ch <= 'z') ||
+    ch === '.' ||
+    ch === '-'
+  );
+}
+
+function readDigitRun(text, start) {
+  let end = start;
+  while (end < text.length && isAsciiDigitChar(text[end])) end++;
+  return end > start ? end : -1;
+}
+
 export function parseSemverishVersion(text) {
   if (!text || typeof text !== 'string') return null;
-  const match = text.match(/(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)/);
-  return match ? match[0] : null;
+  for (let i = 0; i < text.length; i++) {
+    if (!isAsciiDigitChar(text[i])) continue;
+    const majorEnd = readDigitRun(text, i);
+    if (text[majorEnd] !== '.') continue;
+    const minorEnd = readDigitRun(text, majorEnd + 1);
+    if (minorEnd === -1 || text[minorEnd] !== '.') continue;
+    const patchEnd = readDigitRun(text, minorEnd + 1);
+    if (patchEnd === -1) continue;
+
+    let versionEnd = patchEnd;
+    if ((text[versionEnd] === '-' || text[versionEnd] === '+') && isVersionSuffixChar(text[versionEnd + 1])) {
+      versionEnd++;
+      while (versionEnd < text.length && isVersionSuffixChar(text[versionEnd])) versionEnd++;
+    }
+
+    return text.slice(i, versionEnd);
+  }
+  return null;
 }
 
 export function versionSupportsModelFlag(version) {
   if (!version || typeof version !== 'string') return null;
-  const match = version.match(/^(\d+)\.(\d+)\.(\d+)/);
-  if (!match) return null;
-  const major = Number.parseInt(match[1], 10);
-  const minor = Number.parseInt(match[2], 10);
+  const parts = version.split('.');
+  if (parts.length < 3 || !parts[0] || !parts[1] || !parts[2]) return null;
+  if (![...parts[0]].every(isAsciiDigitChar) || ![...parts[1]].every(isAsciiDigitChar)) return null;
+  const major = Number.parseInt(parts[0], 10);
+  const minor = Number.parseInt(parts[1], 10);
   if (Number.isNaN(major) || Number.isNaN(minor)) return null;
   if (major > 1) return true;
   if (major < 1) return false;
@@ -779,15 +816,42 @@ export function renderLiveSmokeReport(report) {
 // ---------- Go-style Duration Parser ----------
 
 export function parseDurationToMs(str) {
-  if (!str) return null;
-  const regex = /(\d+(?:\.\d+)?)(ns|us|µs|ms|s|m|h)/g;
-  let match;
+  if (!str || typeof str !== 'string') return null;
+  const input = str.trim();
+  if (!input) return null;
   let totalMs = 0;
   let hasMatch = false;
-  while ((match = regex.exec(str)) !== null) {
+  let index = 0;
+
+  while (index < input.length) {
+    const numberStart = index;
+    while (index < input.length && isAsciiDigitChar(input[index])) index++;
+    if (input[index] === '.') {
+      index++;
+      const decimalStart = index;
+      while (index < input.length && isAsciiDigitChar(input[index])) index++;
+      if (index === decimalStart) return null;
+    }
+    if (index === numberStart) return null;
+
+    const rawNumber = input.slice(numberStart, index);
+    let unit = '';
+    if (input.startsWith('ms', index) || input.startsWith('us', index) || input.startsWith('µs', index) || input.startsWith('ns', index)) {
+      unit = input.slice(index, index + 2);
+      index += 2;
+    } else if (input[index] === 's' || input[index] === 'm' || input[index] === 'h') {
+      unit = input[index];
+      index++;
+    } else {
+      if (!hasMatch && index === input.length) {
+        const plain = Number.parseFloat(rawNumber);
+        return !Number.isNaN(plain) && plain > 0 ? Math.round(plain * 1000) : null;
+      }
+      return null;
+    }
+
     hasMatch = true;
-    const value = parseFloat(match[1]);
-    const unit = match[2];
+    const value = Number.parseFloat(rawNumber);
     switch (unit) {
       case 'ns': totalMs += value / 1e6; break;
       case 'us':
@@ -798,13 +862,8 @@ export function parseDurationToMs(str) {
       case 'h': totalMs += value * 3600000; break;
     }
   }
-  if (!hasMatch) {
-    const plain = parseFloat(str);
-    if (!isNaN(plain) && plain > 0) {
-      return Math.round(plain * 1000);
-    }
-    return null;
-  }
+
+  if (!hasMatch) return null;
   return Math.round(totalMs);
 }
 

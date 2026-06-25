@@ -745,6 +745,9 @@ describe('parseDurationToMs', () => {
 
   it('returns null for invalid input', () => {
     assert.equal(parseDurationToMs('invalid'), null);
+    assert.equal(parseDurationToMs('20sx'), null);
+    assert.equal(parseDurationToMs('5m trailing'), null);
+    assert.equal(parseDurationToMs('1.2.3s'), null);
     assert.equal(parseDurationToMs(''), null);
     assert.equal(parseDurationToMs(null), null);
   });
@@ -947,13 +950,21 @@ describe('doctor helpers', () => {
   it('parses semverish agy versions from text', () => {
     assert.equal(parseSemverishVersion('Antigravity CLI 1.0.6'), '1.0.6');
     assert.equal(parseSemverishVersion('Gemini CLI v1.1.2-beta.1'), '1.1.2-beta.1');
+    assert.equal(parseSemverishVersion('Gemini CLI 1.2.3+build.7'), '1.2.3+build.7');
     assert.equal(parseSemverishVersion('no version here'), null);
+  });
+
+  it('ignores malformed semverish candidates without regex backtracking', () => {
+    assert.equal(parseSemverishVersion('version 1.2'), null);
+    assert.equal(parseSemverishVersion('version 1.2.x'), null);
+    assert.equal(parseSemverishVersion(`v${'1.x.'.repeat(5000)} 2.3.4`), '2.3.4');
   });
 
   it('maps agy version to model-flag support', () => {
     assert.equal(versionSupportsModelFlag('1.0.9'), false);
     assert.equal(versionSupportsModelFlag('1.1.0'), true);
     assert.equal(versionSupportsModelFlag('2.0.0'), true);
+    assert.equal(versionSupportsModelFlag('1.x.0'), null);
     assert.equal(versionSupportsModelFlag(null), null);
   });
 
