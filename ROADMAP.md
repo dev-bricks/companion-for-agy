@@ -18,6 +18,7 @@ The tool is currently **Windows-only verified**. macOS and Linux are expected to
 - [ ] Verify ANSI response color on macOS (is it still `RGB(232,234,237)` or does agy use a different palette?)
 - [x] Add a Linux PTY smoke that exercises `node-pty`/`forkpty`, `spawn-helper`, native binary discovery and truecolor extraction without requiring agy authentication
 - [x] Add bundled `--platform-smoke` / `npm run platform-smoke:json` gate that runs doctor + PTY smoke and prints the next authenticated live-smoke command for Mac/Linux handoff logs
+- [x] Add `--report-file <path>` so Mac/Linux doctor, platform-smoke, PTY-smoke and live-smoke runs can persist JSON evidence files while keeping stdout compatible
 - [x] Add an authenticated live-smoke mode (`--live-smoke`) that asks agy for `AGY_LIVE_SMOKE_OK`, emits text/JSON reports, and exits nonzero on marker mismatch
 - [ ] Verify ANSI response color on Linux during a real agy session
 - [x] Handle agy v1.0.x (Homebrew `antigravity-cli`) which lacks `--model` flag — `--model` can be skipped via `--no-model` or `AGY_COMPANION_NO_MODEL`
@@ -30,6 +31,7 @@ The tool is currently **Windows-only verified**. macOS and Linux are expected to
 - `--debug` flag saves raw PTY output to `agy-debug.log` — inspect for actual ANSI color codes on any platform
 - `AGY_COMPANION_RESPONSE_RGB` environment variable override for platform/theme-specific response colors
 - `--platform-smoke --json` bundles the auth-free pre-live checks and records the exact next live-smoke command
+- `--platform-smoke --report-file reports/platform-smoke.json` persists a pretty JSON evidence file for handoff logs
 - `--live-smoke --no-model --debug --json` is the repeatable authenticated gate after `--doctor` and `--pty-smoke` on macOS/Linux
 
 ### Color Fallback / Auto-Probe

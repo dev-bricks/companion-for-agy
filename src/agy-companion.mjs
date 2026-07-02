@@ -619,6 +619,16 @@ export async function collectPlatformSmokeReport({ ptyTimeoutMs = 10000 } = {}) 
   };
 }
 
+export function writeReportFile(report, reportFilePath, { cwd = process.cwd() } = {}) {
+  if (!reportFilePath || typeof reportFilePath !== 'string') {
+    return null;
+  }
+  const resolvedPath = path.resolve(cwd, reportFilePath);
+  fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
+  fs.writeFileSync(resolvedPath, JSON.stringify(report, null, 2) + '\n', 'utf8');
+  return resolvedPath;
+}
+
 export function renderDoctorReport(report) {
   const lines = [
     `companion-for-agy doctor ${report.toolVersion || '(unknown version)'}`,
@@ -1233,6 +1243,7 @@ if (isMainModule()) {
   let timeoutMs = DEFAULT_TIMEOUT_MS;
   let debug = false;
   let jsonOutput = false;
+  let reportFile = null;
   let doctorMode = false;
   let platformSmokeMode = false;
   let ptySmokeMode = false;
@@ -1270,6 +1281,10 @@ if (isMainModule()) {
       debug = true;
     } else if (arg === '--json') {
       jsonOutput = true;
+    } else if (arg === '--report-file' && rawArgs[i + 1]) {
+      reportFile = rawArgs[++i];
+    } else if (arg.startsWith('--report-file=')) {
+      reportFile = arg.slice('--report-file='.length);
     } else if (arg === '--doctor') {
       doctorMode = true;
     } else if (arg === '--platform-smoke') {
@@ -1325,6 +1340,16 @@ if (isMainModule()) {
 
   const lang = detectLocale(langOption);
 
+  function writeOptionalReport(report) {
+    if (!reportFile) return;
+    try {
+      writeReportFile(report, reportFile);
+    } catch (error) {
+      process.stderr.write(`[agy-companion] Failed to write report file ${reportFile}: ${error.message}\n`);
+      process.exit(1);
+    }
+  }
+
   if (showHelp || rawArgs.length === 0) {
     printUsage(lang);
     process.exit(0);
@@ -1374,6 +1399,7 @@ if (isMainModule()) {
 
   if (doctorMode) {
     const report = collectDoctorReport();
+    writeOptionalReport(report);
     if (jsonOutput) {
       process.stdout.write(JSON.stringify(report) + '\n');
     } else {
@@ -1384,6 +1410,7 @@ if (isMainModule()) {
 
   if (platformSmokeMode) {
     const report = await collectPlatformSmokeReport();
+    writeOptionalReport(report);
     if (jsonOutput) {
       process.stdout.write(JSON.stringify(report) + '\n');
     } else {
@@ -1394,6 +1421,7 @@ if (isMainModule()) {
 
   if (ptySmokeMode) {
     const report = await collectPtySmokeReport();
+    writeOptionalReport(report);
     if (jsonOutput) {
       process.stdout.write(JSON.stringify(report) + '\n');
     } else {
@@ -1586,6 +1614,7 @@ if (isMainModule()) {
         debug,
         prompt: userPromptForFilter,
       });
+      writeOptionalReport(report);
       if (jsonOutput) {
         process.stdout.write(JSON.stringify(report) + '\n');
       } else {

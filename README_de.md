@@ -124,6 +124,7 @@ companion-for-agy --allow "write_file(/mein/ausgabe/*)" --add-dir "/mein/ausgabe
 | `--no-model` | `--model` nicht an agy übergeben; nützlich für agy v1.0.x |
 | `--timeout <ms>` | Timeout in ms (Standard: `120000`) |
 | `--json` | Ausgabe als JSON-Objekt |
+| `--report-file <Pfad>` | Diagnosebericht für `--doctor`, `--platform-smoke`, `--pty-smoke` und `--live-smoke` als JSON-Datei schreiben |
 | `--debug` | Raw-PTY-Ausgabe in `agy-debug.log` speichern |
 | `--doctor` | Plattform-Preflight für agy, node-pty und Helper-Artefakte ausgeben |
 | `--platform-smoke` | `--doctor` und `--pty-smoke` als gemeinsames Pre-Live-Plattform-Gate ausführen |
@@ -152,6 +153,7 @@ companion-for-agy --json --model gemini-3.5-pro "Prompt"
 companion-for-agy --no-model "Prompt"
 companion-for-agy --skip-permissions --add-dir "/mein/ausgabe" "Schreibe hello.txt nach /mein/ausgabe"
 companion-for-agy --doctor --json
+companion-for-agy --platform-smoke --report-file reports/platform-smoke.json
 companion-for-agy --platform-smoke --json
 companion-for-agy --pty-smoke --json
 companion-for-agy --live-smoke --no-model --debug --json
@@ -161,7 +163,7 @@ companion-for-agy --no-tools -- "-prompt mit Bindestrich"
 
 JSON-Ausgabe enthält `response`, `model`, `requestedModel` und `permissionMode`. `model` wird nach Möglichkeit aus agys Banner erkannt und fällt sonst auf `requestedModel` zurück.
 
-Für `--doctor --json` enthält die Ausgabe stattdessen einen Preflight-Bericht mit `status`, `blockers`, `warnings`, agy-Versionserkennung, `node-pty`-Ladedetails und Helper-/Binary-Pfaden. Für `--platform-smoke --json` enthält sie einen gebündelten Pre-Live-Bericht mit verschachteltem Doctor- und PTY-Smoke-Ergebnis sowie dem nächsten authentifizierten Live-Smoke-Befehl. Für `--pty-smoke --json` enthält sie einen PTY-Smoke-Bericht mit verwendetem Kommando, erwarteter/extrahierter Truecolor-Antwort, Rohbytezahl sowie Blockern/Warnungen. Für `--live-smoke --no-model --debug --json` enthält sie einen authentifizierten agy-Live-Smoke-Bericht mit `status`, Marker-Prüfung, Modellmetadaten, Berechtigungsmodus, Antwort-RGB und Debug-Log-Pfad. Ein Marker-Mismatch beendet den Prozess mit Exit-Code `5`.
+Für `--doctor --json` enthält die Ausgabe stattdessen einen Preflight-Bericht mit `status`, `blockers`, `warnings`, agy-Versionserkennung, `node-pty`-Ladedetails und Helper-/Binary-Pfaden. Für `--platform-smoke --json` enthält sie einen gebündelten Pre-Live-Bericht mit verschachteltem Doctor- und PTY-Smoke-Ergebnis sowie dem nächsten authentifizierten Live-Smoke-Befehl. Für `--pty-smoke --json` enthält sie einen PTY-Smoke-Bericht mit verwendetem Kommando, erwarteter/extrahierter Truecolor-Antwort, Rohbytezahl sowie Blockern/Warnungen. Für `--live-smoke --no-model --debug --json` enthält sie einen authentifizierten agy-Live-Smoke-Bericht mit `status`, Marker-Prüfung, Modellmetadaten, Berechtigungsmodus, Antwort-RGB und Debug-Log-Pfad. Ein Marker-Mismatch beendet den Prozess mit Exit-Code `5`. `--report-file <Pfad>` kann zu jedem Diagnosemodus ergänzt werden, wenn der Bericht dauerhaft als formatiertes JSON abgelegt werden soll, während stdout im gewählten Text- oder JSON-Format bleibt.
 
 ## Internationalisierung
 

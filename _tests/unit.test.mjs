@@ -16,6 +16,7 @@ import {
   parseSemverishVersion, versionSupportsModelFlag, inspectNodePtyArtifacts,
   buildPtySmokeCommand, PTY_SMOKE_TEXT, renderPtySmokeReport,
   renderPlatformSmokeReport, PLATFORM_SMOKE_LIVE_COMMAND,
+  writeReportFile,
 } from '../src/agy-companion.mjs';
 import { detectLocale, getMessage } from '../src/locales.mjs';
 
@@ -1071,5 +1072,22 @@ describe('doctor helpers', () => {
     assert.match(rendered, /doctor: WARN/);
     assert.match(rendered, /pty smoke: OK/);
     assert.match(rendered, /--live-smoke --no-model --debug --json/);
+  });
+
+  it('writes diagnostic report JSON to nested report file paths', () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'agy-companion-report-'));
+    try {
+      const report = {
+        tool: 'companion-for-agy',
+        status: 'ok',
+        nested: { value: PTY_SMOKE_TEXT },
+      };
+      const writtenPath = writeReportFile(report, path.join('reports', 'platform.json'), { cwd: tempRoot });
+      assert.equal(writtenPath, path.join(tempRoot, 'reports', 'platform.json'));
+      const parsed = JSON.parse(fs.readFileSync(writtenPath, 'utf8'));
+      assert.deepEqual(parsed, report);
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
   });
 });

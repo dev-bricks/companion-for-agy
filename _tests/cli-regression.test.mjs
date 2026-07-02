@@ -305,6 +305,25 @@ describe('CLI regressions with fake PTY', () => {
     }
   });
 
+  it('writes platform smoke report JSON to --report-file while keeping text stdout', async () => {
+    const harness = makeFakeHarness('pty-smoke', { agyPath: process.execPath });
+    try {
+      const reportFile = path.join(harness.tempDir, 'reports', 'platform-smoke.json');
+      const { stdout } = await execFileAsync('node', [SCRIPT, '--platform-smoke', '--report-file', reportFile], {
+        env: harness.env,
+        timeout: 20000,
+      });
+      assert.match(stdout, /companion-for-agy platform smoke/);
+      const parsed = JSON.parse(fs.readFileSync(reportFile, 'utf8'));
+      assert.equal(parsed.tool, 'companion-for-agy');
+      assert.equal(parsed.status, 'ok');
+      assert.equal(parsed.checks.ptySmoke.smoke.extractedText, 'PTY_SMOKE_OK');
+      assert.match(parsed.nextLiveSmoke.command, /--live-smoke/);
+    } finally {
+      harness.cleanup();
+    }
+  });
+
   it('runs live smoke JSON with the default no-tools permission mode', async () => {
     const harness = makeFakeHarness('live-smoke');
     try {

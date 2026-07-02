@@ -126,6 +126,7 @@ companion-for-agy --allow "write_file(/my/output/*)" --add-dir "/my/output" \
 | `--no-model` | Do not pass `--model` to agy; useful for agy v1.0.x |
 | `--timeout <ms>` | Timeout in ms (default: `120000`) |
 | `--json` | Output as JSON object |
+| `--report-file <path>` | Write diagnostic report JSON to a file for `--doctor`, `--platform-smoke`, `--pty-smoke` and `--live-smoke` |
 | `--debug` | Save raw PTY output to `agy-debug.log` |
 | `--doctor` | Print a platform preflight for agy, node-pty and helper artifacts |
 | `--platform-smoke` | Run `--doctor` and `--pty-smoke` as one pre-live platform gate |
@@ -155,6 +156,7 @@ companion-for-agy --no-model "prompt"
 companion-for-agy --skip-permissions --add-dir "/my/output" "Write hello.txt to /my/output"
 companion-for-agy --doctor
 companion-for-agy --doctor --json
+companion-for-agy --platform-smoke --report-file reports/platform-smoke.json
 companion-for-agy --platform-smoke --json
 companion-for-agy --pty-smoke --json
 companion-for-agy --live-smoke --no-model --debug --json
@@ -168,6 +170,7 @@ For `--doctor --json`, the output instead contains a preflight report with `stat
 For `--platform-smoke --json`, the output contains a bundled pre-live report with nested doctor and PTY-smoke results plus the exact authenticated live-smoke command to run next.
 For `--pty-smoke --json`, the output contains a PTY smoke report with the command used, expected/extracted truecolor text, raw byte count, and blockers/warnings. This is the first auth-free check to run on macOS and Linux before a real `agy --debug` live smoke.
 For `--live-smoke --no-model --debug --json`, the output contains an authenticated agy live-smoke report with `status`, marker match details, model metadata, permission mode, response RGB and the debug-log path. A marker mismatch exits with code `5`.
+Add `--report-file <path>` to any diagnostic mode when the report should be persisted as pretty JSON while stdout keeps its selected text or JSON format.
 
 ## Internationalization Scope
 

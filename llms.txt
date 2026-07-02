@@ -33,6 +33,7 @@ companion-for-agy [options] "prompt"
 - `--no-model`: Do not pass `--model` to agy (useful for older agy v1.0.x).
 - `--timeout <ms>`: Set execution timeout in ms (default: `120000`).
 - `--json`: Format CLI output as a JSON object containing the response and metadata.
+- `--report-file <path>`: Persist diagnostic report JSON for doctor/platform/PTY/live smoke modes while keeping stdout compatible.
 - `--debug`: Enable verbose debug logging to `agy-debug.log`.
 - `--lang <code>`: Set CLI output language (en, de, es, zh-Hans, ja, ru).
 

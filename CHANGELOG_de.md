@@ -3,6 +3,7 @@
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
+- `--report-file <Pfad>` für Diagnosemodi (`--doctor`, `--platform-smoke`, `--pty-smoke`, `--live-smoke`). Der Schalter schreibt einen formatierten JSON-Bericht auf die Platte, während stdout wie gewählt Text oder JSON bleibt; macOS-/Linux-Übergaben bekommen damit dauerhafte Evidenzdateien.
 - Gebündeltes Pre-Live-Plattform-Gate `--platform-smoke` plus `npm run platform-smoke` / `npm run platform-smoke:json`. Der Bericht führt `--doctor` und den auth-freien PTY-Smoke in einem Befehl aus, verschachtelt beide Einzelberichte, aggregiert Blocker/Warnungen und nennt den exakten authentifizierten `--live-smoke --no-model --debug --json`-Befehl für Mac-/Linux-Übergaben.
 - Authentifizierter agy-Marker-Smoke `--live-smoke` plus `npm run live-smoke` / `npm run live-smoke:json` (Skripte nutzen `--no-model` für agy-1.0.x-Kompatibilität). Der Modus nutzt standardmäßig `no-tools`, fordert von agy exakt `AGY_LIVE_SMOKE_OK`, gibt einen Text- oder JSON-Bericht aus und beendet sich bei Marker-Mismatch mit Exit-Code `5`. Damit hat der macOS-/Linux-Transfer nach `--doctor` und `--pty-smoke` ein wiederholbares Live-Gate.
 - Paketierter Plattform-Smoke `--pty-smoke` plus `npm run pty-smoke` / `npm run pty-smoke:json`. Der Smoke prüft den installierten `node-pty`-Truecolor-Pfad ohne agy-Authentifizierung, meldet Blocker/Warnungen als Text oder JSON und liefert macOS/Linux ein wiederholbares Gate vor echten `agy --debug`-Live-Smokes.
